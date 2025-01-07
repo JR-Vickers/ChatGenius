@@ -2,10 +2,7 @@
 
 import { useState } from 'react';
 import { signIn, signUp } from '@/utils/auth';
-import { createSupabaseClient } from '@/utils/supabase';
-import { SupabaseClient } from '@supabase/supabase-js';
-
-const supabase = createSupabaseClient();
+import { AuthError } from '@supabase/supabase-js';
 
 const AuthForm = () => {
   const [email, setEmail] = useState('');
@@ -34,9 +31,12 @@ const AuthForm = () => {
         const { error } = await signUp(email, password, username.trim());
         if (error) throw error;
       }
-    } catch (e: any) {
-      console.error('Auth error:', e);
-      setError(e.message);
+    } catch (e: unknown) {
+      if (e instanceof AuthError || e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError('An unexpected error occurred');
+      }
     } finally {
       setLoading(false);
     }

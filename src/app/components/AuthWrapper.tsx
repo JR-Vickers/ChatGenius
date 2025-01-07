@@ -3,13 +3,13 @@
 import { useEffect, useState } from 'react';
 import ChatInterface from './ChatInterface';
 import AuthForm from './AuthForm';
-import { getSession } from '@/utils/auth';
 import { createSupabaseClient } from '@/utils/supabase';
+import { Session } from '@supabase/supabase-js';
 
 const supabase = createSupabaseClient();
 
 export default function AuthWrapper() {
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

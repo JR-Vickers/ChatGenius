@@ -28,7 +28,7 @@ const ChatInterface = () => {
   const [newMessage, setNewMessage] = useState('');
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const channelRef = useRef<any>(null);
+  const channelRef = useRef<Profile | null>(null);
 
   useEffect(() => {
     // Get current user and their profile
