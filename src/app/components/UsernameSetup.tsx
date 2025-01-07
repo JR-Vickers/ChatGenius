@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createSupabaseClient } from '@/utils/supabase';
 import { User } from '@supabase/supabase-js';
 
@@ -14,7 +14,17 @@ interface UsernameSetupProps {
 const UsernameSetup = ({ user, onComplete }: UsernameSetupProps) => {
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
-  const [_loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (loading) {
+      // Show loading state
+      document.title = 'Loading...';
+      return () => {
+        document.title = 'ChatGenius';
+      };
+    }
+  }, [loading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
