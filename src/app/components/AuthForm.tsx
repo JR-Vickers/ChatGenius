@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { signIn, signUp } from '@/utils/auth';
 import { createSupabaseClient } from '@/utils/supabase';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 const supabase = createSupabaseClient();
 
@@ -30,7 +31,7 @@ const AuthForm = () => {
         }
 
         // Create auth user
-        const { error: signUpError } = await signUp(email, password, username.trim());
+        const { error } = await signUp(email, password, username.trim());
         if (error) throw error;
       }
     } catch (e: any) {

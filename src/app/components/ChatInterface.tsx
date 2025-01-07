@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { signOut } from '@/utils/auth';
 import { createSupabaseClient } from '@/utils/supabase';
+import { User } from '@supabase/supabase-js';
+import { Message } from '@/types/message';
 
 const supabase = createSupabaseClient();
 
@@ -15,18 +17,17 @@ const formatTimestamp = (timestamp: string) => {
   });
 }
 
-interface Message {
+interface Profile {
   id: number;
-  content: string;
-  created_at: string;
-  user_id: string;
+  username: string;
+  updated_at: string;
 }
 
 const ChatInterface = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const channelRef = useRef<any>(null);
 
   useEffect(() => {

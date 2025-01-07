@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import { createSupabaseClient } from '@/utils/supabase';
+import { User } from '@supabase/supabase-js';
 
 const supabase = createSupabaseClient();
 
 interface UsernameSetupProps {
-  user: any;
+  user: User;
   onComplete: () => void;
 }
 
