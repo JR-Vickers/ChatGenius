@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { signOut } from '@/utils/auth';
 import { createSupabaseClient } from '@/utils/supabase';
-import { User } from '@supabase/supabase-js';
+import { User, RealtimeChannel } from '@supabase/supabase-js';
 import { Message } from '@/types/message';
 
 const supabase = createSupabaseClient();
@@ -28,7 +28,7 @@ const ChatInterface = () => {
   const [newMessage, setNewMessage] = useState('');
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const channelRef = useRef<Profile | null>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
     // Get current user and their profile
@@ -52,7 +52,7 @@ const ChatInterface = () => {
             setProfile(null);
           } else {
             console.log('Successfully fetched profile:', profile);
-            setProfile(profile);
+            setProfile(profile as Profile);
           }
         }
       } catch (err) {
