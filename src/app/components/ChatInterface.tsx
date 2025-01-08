@@ -8,7 +8,6 @@ import { Message } from '@/types/message';
 import CreateChannelModal from './CreateChannelModal';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Channel } from '../../types/channel';
-import type { UseQueryOptions } from '@tanstack/react-query';
 
 const supabase = createSupabaseClient();
 
@@ -49,9 +48,6 @@ interface Message {
 
 const ChatInterface = () => {
   const [newMessage, setNewMessage] = useState('');
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const channelRef = useRef<RealtimeChannel | null>(null);
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const queryClient = useQueryClient();
   const [currentChannel, setCurrentChannel] = useState<Channel | null>(null);
