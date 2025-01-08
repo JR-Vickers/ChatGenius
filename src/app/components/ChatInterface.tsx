@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { signOut } from '@/utils/auth';
 import { createSupabaseClient } from '@/utils/supabase';
-import { User, RealtimeChannel } from '@supabase/supabase-js';
 import { Message } from '@/types/message';
 import CreateChannelModal from './CreateChannelModal';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -30,12 +29,6 @@ const formatTimestamp = (timestamp: string | null) => {
     return 'Invalid Date';
   }
 };
-
-interface Profile {
-  id: number;
-  username: string;
-  updated_at: string;
-}
 
 // Add message type
 interface Message {
