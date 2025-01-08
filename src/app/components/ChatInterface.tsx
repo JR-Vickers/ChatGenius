@@ -49,12 +49,13 @@ const ChatInterface = () => {
       if (error) throw error;
       return data || [];
     },
-    onSuccess(data) {
-      if (!currentChannel && data.length > 0) {
-        const general = data.find(c => c.name === 'general') || data[0];
-        setCurrentChannel(general);
-      }
-    }
+    // TODO: Fix this
+    // onSuccess(data) {
+    //   if (!currentChannel && data.length > 0) {
+    //     const general = data.find(c => c.name === 'general') || data[0];
+    //     setCurrentChannel(general);
+    //   }
+    // }
   });
 
   // Fetch messages for current channel
