@@ -30,15 +30,6 @@ const formatTimestamp = (timestamp: string | null) => {
   }
 };
 
-// Add message type
-interface Message {
-  id: string;
-  content: string;
-  created_at: string;
-  user_id: string;
-  channel_id: string;
-}
-
 const ChatInterface = () => {
   const [newMessage, setNewMessage] = useState('');
   const [showCreateChannel, setShowCreateChannel] = useState(false);

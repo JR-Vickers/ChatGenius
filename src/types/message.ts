@@ -1,6 +1,7 @@
 export interface Message {
-  id: number
-  content: string
-  created_at: string
-  user_id: string
-} 
+  id: string;
+  content: string;
+  created_at: string;
+  user_id: string;
+  channel_id: string;
+}
