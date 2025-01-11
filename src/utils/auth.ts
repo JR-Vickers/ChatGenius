@@ -1,9 +1,23 @@
+import { User } from '@supabase/supabase-js';
+import { Session } from '@supabase/supabase-js';
 import { createSupabaseClient } from './supabase';
 
-export const signUp = async (email: string, password: string, username: string) => {
+interface SignUpResponse {
+  data: {
+    user: User | null;
+    session: Session | null;
+  } | null;
+  error: Error | null;
+  status?: 'confirmation_sent';
+}
+
+export const signUp = async (email: string, password: string, username: string): Promise<SignUpResponse> => {
   const supabase = createSupabaseClient();
+  console.log('Starting signup process for:', email, username);
 
   try {
+    // Check username availability first
+    console.log('Checking username availability...');
     const { data: existingUser, error: checkError } = await supabase
       .from('profiles')
       .select('*')
@@ -12,14 +26,16 @@ export const signUp = async (email: string, password: string, username: string) 
 
     if (checkError && checkError.code !== 'PGRST116') {
       console.error('Username check failed:', checkError);
-      return { error: new Error('Failed to verify username availability') };
+      return { data: null, error: new Error('Failed to verify username availability') };
     }
 
     if (existingUser) {
-      return { error: new Error('Username already taken') };
+      console.log('Username already taken:', username);
+      return { data: null, error: new Error('Username already taken') };
     }
 
-  // Create auth user
+    console.log('Username available, creating auth user...');
+    // Create auth user
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
@@ -32,13 +48,15 @@ export const signUp = async (email: string, password: string, username: string) 
 
     if (signUpError) {
       console.error('Signup failed:', signUpError);
-      return { error: signUpError };
+      return { data: null, error: signUpError };
     }
 
     if (!data.user) {
-      return { error: new Error('No user data returned') };
+      console.error('No user data returned from signup');
+      return { data: null, error: new Error('No user data returned') };
     }
 
+    console.log('Auth user created, creating profile...', data.user.id);
     // Create profile
     const { error: profileError } = await supabase
       .from('profiles')
@@ -50,13 +68,18 @@ export const signUp = async (email: string, password: string, username: string) 
 
     if (profileError) {
       console.error('Profile creation failed:', profileError);
-      return { error: profileError };
+      return { data: null, error: profileError };
     }
 
-    return { data, error: null };
+    console.log('Profile created successfully!');
+    return { 
+      data, 
+      error: null,
+      status: 'confirmation_sent'
+    };
   } catch (err) {
     console.error('Unexpected error during signup:', err);
-    return { error: new Error('Failed to complete signup') };
+    return { data: null, error: new Error('Failed to complete signup') };
   }
 };
 

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { signOut } from '@/utils/auth';
 import { createSupabaseClient } from '@/utils/supabase';
-import { Message } from '@/types/message';
+import { Message, MessageWithProfile } from '@/types/message';
 import CreateChannelModal from './CreateChannelModal';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Channel } from '../../types/channel';
@@ -30,6 +30,40 @@ const formatTimestamp = (timestamp: string | null) => {
   }
 };
 
+// Add this type if you don't have it
+interface MessageInputProps {
+  onSendMessage: (content: string) => Promise<void>;
+}
+
+// Create a separate MessageInput component
+const MessageInput = ({ onSendMessage }: MessageInputProps) => {
+  const [message, setMessage] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); // Prevent form submission refresh
+    if (!message.trim()) return;
+    
+    try {
+      await onSendMessage(message);
+      setMessage(''); // Clear input on success
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-4">
+      <input
+        type="text"
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        placeholder="Type a message..."
+        className="w-full bg-black border border-green-800/50 p-2 text-gray-200"
+      />
+    </form>
+  );
+};
+
 const ChatInterface = () => {
   const [newMessage, setNewMessage] = useState('');
   const [showCreateChannel, setShowCreateChannel] = useState(false);
@@ -49,25 +83,18 @@ const ChatInterface = () => {
       if (error) throw error;
       return data || [];
     },
-    // TODO: Fix this
-    // onSuccess(data) {
-    //   if (!currentChannel && data.length > 0) {
-    //     const general = data.find(c => c.name === 'general') || data[0];
-    //     setCurrentChannel(general);
-    //   }
-    // }
   });
 
   // Fetch messages for current channel
-  const { data: messages = [], isLoading } = useQuery({
+  const { data: messages = [], isLoading } = useQuery<MessageWithProfile[]>({
     queryKey: ['messages', currentChannel?.id],
     queryFn: async () => {
-      console.log('🔍 Fetching messages for channel:', currentChannel?.id);
       const { data } = await supabase
         .from('messages')
-        .select('*')
+        .select(`*`)
         .eq('channel_id', currentChannel?.id)
         .order('created_at', { ascending: true });
+      console.log('Messages with profiles:', data); // Debug log
       return data || [];
     },
     enabled: !!currentChannel?.id
@@ -120,40 +147,55 @@ const ChatInterface = () => {
     return () => window.removeEventListener('focus', handleFocus);
   }, [currentChannel?.id, queryClient]);
 
-  const sendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim() || !currentChannel || !isSubscriptionReady) return;
+  useEffect(() => {
+    if (!currentChannel) return;
 
-    const optimisticMessage: Message = {
-      id: `temp-${Date.now()}`,
-      content: newMessage,
-      channel_id: currentChannel.id,
-      created_at: new Date().toISOString(),
-      user_id: 'anonymous'
+    // Subscribe to messages for current channel
+    const channel = supabase
+      .channel(`messages:${currentChannel.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+          filter: `channel_id=eq.${currentChannel.id}`
+        },
+        (payload) => {
+          console.log('Real-time update:', payload);
+          // Refresh messages
+          queryClient.invalidateQueries({ 
+            queryKey: ['messages', currentChannel.id] 
+          });
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription
+    return () => {
+      supabase.removeChannel(channel);
     };
+  }, [currentChannel?.id, queryClient]);
 
-    // Add optimistic update
-    queryClient.setQueryData(['messages', currentChannel.id], 
-      (old: Message[] = []) => [...old, optimisticMessage]
-    );
-
+  const sendMessage = async (content: string) => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) throw new Error('Not authenticated');
+      if (!currentChannel) throw new Error('No channel selected');
+
       const { error } = await supabase
         .from('messages')
         .insert([{
-          content: newMessage,
+          content,
           channel_id: currentChannel.id,
-          user_id: 'anonymous'
+          user_id: user.id
         }]);
 
       if (error) throw error;
-      setNewMessage('');
-    } catch (error) {
-      console.error('Error sending message:', error);
-      // Remove optimistic update on error
-      queryClient.setQueryData(['messages', currentChannel.id], 
-        (old: Message[] = []) => old.filter(msg => msg.id !== optimisticMessage.id)
-      );
+    } catch (err) {
+      console.error('Failed to send message:', err);
+      throw err;
     }
   };
 
@@ -163,22 +205,28 @@ const ChatInterface = () => {
 
   const handleCreateChannel = async (channelName: string) => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) throw new Error('Not authenticated');
+
       const { data, error } = await supabase
         .from('channels')
-        .insert([{ name: channelName }])
+        .insert([{ 
+          name: channelName,
+          created_by: user.id,
+          type: 'public'  // Explicitly set type
+        }])
         .select()
         .single();
 
       if (error) {
-        if (error.code === '23505') {
-          throw new Error('Channel name already exists');
-        }
-        throw error;
+        console.error('Channel creation error:', error);
+        throw new Error(error.message);
       }
 
-      // Invalidate channels query to trigger refetch
+      // Refresh the channels list
       queryClient.invalidateQueries({ queryKey: ['channels'] });
-      setCurrentChannel(data);
+      return data;
     } catch (err) {
       console.error('Failed to create channel:', err);
       throw err;
@@ -239,28 +287,20 @@ const ChatInterface = () => {
               <div>Loading messages...</div>
             ) : (
               messages.map((message) => (
-                <div key={message.id} className="leading-5">
+                <div key={message.id} className="py-1">
                   <span className="text-green-500">[</span>
-                  <span className="text-gray-400">anonymous</span>
+                  <span className="text-gray-400">
+                    {message.profiles?.username || 'anonymous'}
+                  </span>
                   <span className="text-green-500">]</span>
-                  {' '}
-                  <span className="text-gray-500">{formatTimestamp(message.created_at)}</span>
-                  {' '}
-                  <span className="text-gray-200">{message.content}</span>
+                  <span className="text-green-500"> {formatTimestamp(message.created_at)}</span>
+                  <span className="text-gray-300"> {message.content}</span>
                 </div>
               ))
             )}
           </div>
 
-          <form onSubmit={sendMessage} className="p-4 border-t border-green-800/50">
-            <input
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              className="w-full bg-black border border-green-800/50 p-2 text-gray-200"
-              placeholder="Type a message..."
-            />
-          </form>
+          <MessageInput onSendMessage={sendMessage} />
         </div>
       </div>
     </div>

@@ -11,34 +11,26 @@ const AuthForm = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [confirmationSent, setConfirmationSent] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setLoading(true);
+    console.log('Starting signup submission...');
 
-    try {
-      if (isLogin) {
-        const { error } = await signIn(email, password);
-        if (error) throw error;
-      } else {
-        // Sign up flow
-        if (!username.trim()) {
-          throw new Error('Username is required');
-        }
+    const { error, status, data } = await signUp(email, password, username);
+    
+    console.log('Signup response:', { error, status, data });
+    
+    if (error) {
+      console.error('Signup error:', error);
+      setError(error.message);
+      return;
+    }
 
-        // Create auth user
-        const { error } = await signUp(email, password, username.trim());
-        if (error) throw error;
-      }
-    } catch (e: unknown) {
-      if (e instanceof AuthError || e instanceof Error) {
-        setError(e.message);
-      } else {
-        setError('An unexpected error occurred');
-      }
-    } finally {
-      setLoading(false);
+    if (status === 'confirmation_sent') {
+      console.log('Confirmation email sent');
+      setConfirmationSent(true);
     }
   };
 
