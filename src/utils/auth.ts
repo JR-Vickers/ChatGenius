@@ -57,17 +57,26 @@ interface SignInResponse {
 export const signIn = async (email: string, password: string): Promise<SignInResponse> => {
   const supabase = createSupabaseClient();
   
+  console.log('🔍 Login attempt for:', email);
+  
   try {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
+    console.log('📥 Login response:', { 
+      userId: data?.user?.id,
+      error,
+      metadata: data?.user?.user_metadata,
+      session: !!data?.session
+    });
+
     if (error) throw error;
     
     return { data, error: null };
   } catch (err) {
-    console.error('Auth: Signin error:', err);
+    console.error('❌ Login error:', err);
     return { data: null, error: err as Error };
   }
 };
