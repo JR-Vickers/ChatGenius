@@ -16,24 +16,24 @@ const AuthForm = () => {
     e.preventDefault();
     setError(null);
     setLoading(true);
+    console.log('Form submission - isLogin:', isLogin); // Debug
   
     try {
       if (isLogin) {
-        const { error, data } = await signIn(email, password);
-        if (error) {
-          setError(error.message);
-          return;
-        }
+        console.log('Attempting login...');
+        const { error } = await signIn(email, password);
+        if (error) throw error;
       } else {
-        const { error, status, data } = await signUp(email, password, username);
-        if (error) {
-          setError(error.message);
-          return;
-        }
+        console.log('Attempting signup...');
+        const { error, status } = await signUp(email, password, username);
+        if (error) throw error;
         if (status === 'confirmation_sent') {
           setConfirmationSent(true);
         }
       }
+    } catch (err) {
+      console.error('Auth error:', err);
+      setError((err as Error).message);
     } finally {
       setLoading(false);
     }
