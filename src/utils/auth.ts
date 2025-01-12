@@ -34,44 +34,19 @@ export const signUp = async (email: string, password: string, username: string):
       return { data: null, error: new Error('Username already taken') };
     }
 
-    console.log('Username available, creating auth user...');
     // Create auth user
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
-          username // Store username in auth metadata
+          username
         },
       },
     });
 
-    if (signUpError) {
-      console.error('Signup failed:', signUpError);
-      return { data: null, error: signUpError };
-    }
+    if (signUpError) throw signUpError;
 
-    if (!data.user) {
-      console.error('No user data returned from signup');
-      return { data: null, error: new Error('No user data returned') };
-    }
-
-    console.log('Auth user created, creating profile...', data.user.id);
-    // Create profile
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert([{
-        id: data.user.id,
-        username,
-        updated_at: new Date().toISOString(),
-      }]);
-
-    if (profileError) {
-      console.error('Profile creation failed:', profileError);
-      return { data: null, error: profileError };
-    }
-
-    console.log('Profile created successfully!');
     return { 
       data, 
       error: null,
@@ -79,7 +54,7 @@ export const signUp = async (email: string, password: string, username: string):
     };
   } catch (err) {
     console.error('Unexpected error during signup:', err);
-    return { data: null, error: new Error('Failed to complete signup') };
+    return { data: null, error: err as Error };
   }
 };
 
@@ -89,7 +64,6 @@ interface SignInResponse {
 }
 
 export const signIn = async (email: string, password: string): Promise<SignInResponse> => {
-  console.log('Auth: Starting signin for:', email);
   const supabase = createSupabaseClient();
   
   try {
@@ -97,11 +71,12 @@ export const signIn = async (email: string, password: string): Promise<SignInRes
       email,
       password,
     });
+
+    if (error) throw error;
     
-    console.log('Auth: Signin result:', { userId: data?.user?.id, error });
-    return { data, error };
+    return { data, error: null };
   } catch (err) {
-    console.error('Auth: Unexpected signin error:', err);
+    console.error('Auth: Signin error:', err);
     return { data: null, error: err as Error };
   }
 };
