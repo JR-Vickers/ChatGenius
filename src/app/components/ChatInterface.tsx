@@ -358,11 +358,7 @@ const ChatInterface = () => {
       
       {currentChannel ? (
         <div className="flex-1 flex flex-col">
-          {!isSubscriptionReady && (
-            <div className="text-yellow-500 text-sm p-2">
-              [Connecting to channel...]
-            </div>
-          )}
+          {!isSubscriptionReady}
           <MessageList
             messages={messages || []}
             onContextMenu={handleContextMenu}
