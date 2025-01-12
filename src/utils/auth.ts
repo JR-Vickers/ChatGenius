@@ -83,6 +83,11 @@ export const signUp = async (email: string, password: string, username: string):
   }
 };
 
+interface SignInResponse {
+  data: any;
+  error: Error | null;
+}
+
 export const signIn = async (email: string, password: string): Promise<SignInResponse> => {
   console.log('Auth: Starting signin for:', email);
   const supabase = createSupabaseClient();
@@ -97,7 +102,7 @@ export const signIn = async (email: string, password: string): Promise<SignInRes
     return { data, error };
   } catch (err) {
     console.error('Auth: Unexpected signin error:', err);
-    return { data: null, error: err as AuthError };
+    return { data: null, error: err as Error };
   }
 };
 
