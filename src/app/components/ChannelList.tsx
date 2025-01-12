@@ -33,7 +33,7 @@ export default function ChannelList({ currentChannel, onSelectChannel, onCreateC
       `)
       .order('created_at', { ascending: true });
     
-    setChannels(data || []);
+    setChannels((data || []) as unknown as Channel[]);
   };
 
   useEffect(() => {
