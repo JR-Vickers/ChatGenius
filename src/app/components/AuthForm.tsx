@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { signUp } from '@/utils/auth';
+import { signIn, signUp } from '@/utils/auth';
 
 const AuthForm = () => {
   const [email, setEmail] = useState('');
@@ -16,22 +16,23 @@ const AuthForm = () => {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    console.log('Starting signup submission...');
-
+  
     try {
-      const { error, status, data } = await signUp(email, password, username);
-      
-      console.log('Signup response:', { error, status, data });
-      
-      if (error) {
-        console.error('Signup error:', error);
-        setError(error.message);
-        return;
-      }
-
-      if (status === 'confirmation_sent') {
-        console.log('Confirmation email sent');
-        setConfirmationSent(true);
+      if (isLogin) {
+        const { error, data } = await signIn(email, password);
+        if (error) {
+          setError(error.message);
+          return;
+        }
+      } else {
+        const { error, status, data } = await signUp(email, password, username);
+        if (error) {
+          setError(error.message);
+          return;
+        }
+        if (status === 'confirmation_sent') {
+          setConfirmationSent(true);
+        }
       }
     } finally {
       setLoading(false);
