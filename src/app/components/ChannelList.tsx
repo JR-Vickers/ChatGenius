@@ -1,8 +1,9 @@
 'use client';
 
-import { Channel } from '@/types/channel';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import { createSupabaseClient } from '@/utils/supabase';
+import { Channel } from '@/types/channel';
+import UserSelectionModal from './UserSelectionModal';
 
 const supabase = createSupabaseClient();
 
@@ -10,139 +11,107 @@ interface ChannelListProps {
   currentChannel: Channel | null;
   onSelectChannel: (channel: Channel) => void;
   onCreateChannel: () => void;
-  onCreateDM: () => void;
+  onCreateDM: (userId: string) => void;
 }
 
-export default function ChannelList({ 
-  currentChannel, 
-  onSelectChannel,
-  onCreateChannel,
-  onCreateDM
-}: ChannelListProps) {
-  // Separate queries for channels and DMs
-  const { data: channels = [] } = useQuery<Channel[]>({
-    queryKey: ['channels'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('channels')
-        .select('*')
-        .eq('type', 'channel')
-        .order('name');
+export default function ChannelList({ currentChannel, onSelectChannel, onCreateChannel, onCreateDM }: ChannelListProps) {
+  const [showUserSelect, setShowUserSelect] = useState(false);
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [currentUser, setCurrentUser] = useState<string | null>(null);
+  
+  const fetchChannels = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    setCurrentUser(user.id);
 
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
-  const { data: dms = [] } = useQuery<Channel[]>({
-    queryKey: ['dms'],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      console.log('Current user:', user);
-      if (!user) return [];
-
-      // First get all DM channels the user is part of
-      const { data: userChannels, error: channelsError } = await supabase
-        .from('channel_participants')
-        .select('channel_id')
-        .eq('profile_id', user.id);
-
-      if (channelsError) throw channelsError;
-      
-      const channelIds = userChannels?.map(c => c.channel_id) || [];
-      console.log('User channel IDs:', channelIds);
-
-      // Then get full channel data with all participants
-      const { data, error } = await supabase
-        .from('channels')
-        .select(`
-          *,
-          channel_participants!inner (
-            profiles (
-              id,
-              username
-            )
+    const { data } = await supabase
+      .from('channels')
+      .select(`
+        *,
+        channel_members (
+          user_id,
+          profiles (
+            id,
+            username
           )
-        `)
-        .eq('type', 'dm')
-        .in('id', channelIds);
+        )
+      `)
+      .order('created_at', { ascending: true });
+    
+    setChannels(data || []);
+  };
 
-      console.log('Raw DM data:', JSON.stringify(data, null, 2));
+  // Helper to get other user's name in DM
+  const getDMName = (channel: Channel) => {
+    if (!channel.channel_members || !currentUser) return channel.name;
+    
+    const otherMember = channel.channel_members.find(
+      member => member.user_id !== currentUser
+    );
+    
+    return otherMember?.profiles?.username || channel.name;
+  };
 
-      if (error) throw error;
+  useEffect(() => {
+    fetchChannels();
+  }, []);
 
-      // Transform to get other participant
-      const transformedData = data?.map(dm => {
-        const otherParticipant = dm.channel_participants?.find(
-          p => p.profiles.id !== user.id
-        )?.profiles;
-        
-        console.log('Channel:', dm.id, 'Other participant:', otherParticipant);
-        
-        return {
-          ...dm,
-          profiles: otherParticipant ? [otherParticipant] : []
-        };
-      }) || [];
-
-      return transformedData;
-    },
-  });
+  const handleUserSelected = async (userId: string) => {
+    setShowUserSelect(false);
+    await onCreateDM(userId);
+    fetchChannels(); // Refresh channels after DM creation
+  };
 
   return (
-    <div className="p-2 space-y-4">
-      {/* Channels Section */}
-      <div>
+    <div className="w-60 bg-gray-900 p-4">
+      <div className="mb-4">
         <div className="flex justify-between items-center mb-2">
-          <div className="text-green-500">[Channels]</div>
-          <button 
-            onClick={onCreateChannel}
-            className="text-green-500 hover:text-green-400"
+          <h2 className="text-green-500">Channels</h2>
+          <button onClick={onCreateChannel} className="text-green-500 hover:text-green-400">+</button>
+        </div>
+        {channels.filter(c => c.type === 'channel').map(channel => (
+          <button
+            key={channel.id}
+            onClick={() => onSelectChannel(channel)}
+            className={`w-full text-left p-2 rounded font-medium text-base ${
+              currentChannel?.id === channel.id 
+                ? 'bg-green-900/30 text-green-400' 
+                : 'text-gray-300 hover:bg-gray-800 hover:text-green-400'
+            }`}
           >
-            [+]
+            #{channel.name}
           </button>
-        </div>
-        <div className="space-y-1">
-          {channels.map((channel) => (
-            <div
-              key={channel.id}
-              className={`cursor-pointer hover:text-green-400 ${
-                currentChannel?.id === channel.id ? 'text-green-500' : 'text-gray-400'
-              }`}
-              onClick={() => onSelectChannel(channel)}
-            >
-              #{channel.name}
-            </div>
-          ))}
-        </div>
+        ))}
       </div>
 
-      {/* DMs Section */}
       <div>
         <div className="flex justify-between items-center mb-2">
-          <div className="text-green-500">[Direct Messages]</div>
-          <button 
-            onClick={onCreateDM}
-            className="text-green-500 hover:text-green-400"
+          <h2 className="text-green-500">Direct Messages</h2>
+          <button onClick={() => setShowUserSelect(true)} className="text-green-500 hover:text-green-400">+</button>
+        </div>
+        {channels.filter(c => c.type === 'dm').map(channel => (
+          <button
+            key={channel.id}
+            onClick={() => onSelectChannel(channel)}
+            className={`w-full text-left p-2 rounded font-medium text-base ${
+              currentChannel?.id === channel.id 
+                ? 'bg-green-900/30 text-green-400' 
+                : 'text-gray-300 hover:bg-gray-800 hover:text-green-400'
+            }`}
           >
-            [+]
+            @{getDMName(channel)}
           </button>
-        </div>
-        <div className="space-y-1">
-          {dms.map((dm) => (
-            <div
-              key={dm.id}
-              className={`cursor-pointer hover:text-green-400 ${
-                currentChannel?.id === dm.id ? 'text-green-500' : 'text-gray-400'
-              }`}
-              onClick={() => onSelectChannel(dm)}
-            >
-              {/* Show the other participant's name */}
-              @{dm.profiles?.[0]?.username || 'unknown'}
-            </div>
-          ))}
-        </div>
+        ))}
       </div>
+
+      {showUserSelect && (
+        <UserSelectionModal
+          onClose={() => setShowUserSelect(false)}
+          onUserSelected={(userId) => {
+            handleUserSelected(userId);
+          }}
+        />
+      )}
     </div>
   );
 }

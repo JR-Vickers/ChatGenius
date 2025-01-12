@@ -214,9 +214,16 @@ const ChatInterface = () => {
     await signOut();
   };
 
-  const handleCreateChannel = async () => {
+  const handleCreateChannel = () => {
     console.log('Opening create channel modal');
     setShowCreateChannel(true);
+  };
+
+  const handleChannelCreated = (channel: Channel) => {
+    console.log('Channel created:', channel);
+    setShowCreateChannel(false);
+    setCurrentChannel(channel);
+    queryClient.invalidateQueries({ queryKey: ['channels'] });
   };
 
   // Thread messages query
@@ -351,41 +358,57 @@ const ChatInterface = () => {
         .from('channels')
         .select(`
           *,
-          channel_participants!inner (profile_id),
-          profiles:channel_participants(
-            profile_id,
-            profiles (username)
+          channel_members!inner (
+            user_id,
+            profiles (
+              id,
+              username
+            )
           )
         `)
         .eq('type', 'dm')
-        .eq('channel_participants.profile_id', user.id)
-        .eq('channel_participants.profile_id', userId)
-        .single();
+        .contains('channel_members', [{ user_id: user.id }, { user_id: userId }]);
 
-      if (existingDM) {
-        setCurrentChannel(existingDM);
+      if (existingDM && existingDM.length > 0) {
+        setCurrentChannel(existingDM[0]);
         return;
       }
 
       // Create new DM channel
+      const { data: otherUser } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('id', userId)
+        .single();
+
       const { data: newChannel, error: channelError } = await supabase
         .from('channels')
         .insert([{
           type: 'dm',
           created_by: user.id,
-          name: `dm-${user.id}-${userId}` // Internal name
+          name: otherUser?.username || 'unknown' // Just use their username
         }])
         .select()
         .single();
 
       if (channelError) throw channelError;
 
-      // Add both users to channel_participants
+      // Add both users to channel_members
       const { error: participantsError } = await supabase
-        .from('channel_participants')
+        .from('channel_members')
         .insert([
-          { channel_id: newChannel.id, profile_id: user.id },
-          { channel_id: newChannel.id, profile_id: userId }
+          { 
+            channel_id: newChannel.id, 
+            user_id: user.id,     // Changed from profile_id
+            joined_at: new Date().toISOString(),
+            last_read_at: new Date().toISOString()
+          },
+          { 
+            channel_id: newChannel.id, 
+            user_id: userId,      // Changed from profile_id
+            joined_at: new Date().toISOString(),
+            last_read_at: new Date().toISOString()
+          }
         ]);
 
       if (participantsError) throw participantsError;
@@ -395,9 +418,12 @@ const ChatInterface = () => {
         .from('channels')
         .select(`
           *,
-          profiles:channel_participants(
-            profile_id,
-            profiles (username)
+          channel_members (
+            user_id,
+            profiles (
+              id,
+              username
+            )
           )
         `)
         .eq('id', newChannel.id)
@@ -437,28 +463,35 @@ const ChatInterface = () => {
   };
 
   return (
-    <div className="flex h-screen bg-black text-white">
-      <div className="w-64 border-r border-green-800/50">
-        <ChannelList
-          currentChannel={currentChannel}
-          onSelectChannel={setCurrentChannel}
-          onCreateChannel={() => setShowCreateChannel(true)}
-          onCreateDM={() => setShowUserSearch(true)}
-        />
-      </div>
-
-      <div className="flex-1 flex flex-col">
-        <MessageList
-          messages={messages || []}
-          onContextMenu={handleContextMenu}
-          channelType={currentChannel?.type}
-        />
-        <MessageInput
-          onSendMessage={handleSendMessage}
-          placeholder={`Message ${currentChannel?.name || ''}`}
-          currentChannel={currentChannel}
-        />
-      </div>
+    <div className="flex h-screen">
+      <ChannelList
+        currentChannel={currentChannel}
+        onSelectChannel={setCurrentChannel}
+        onCreateChannel={() => setShowCreateChannel(true)}
+        onCreateDM={handleCreateDM}
+      />
+      
+      {currentChannel ? (
+        <div className="flex-1 flex flex-col">
+          <MessageList
+            messages={messages || []}
+            onContextMenu={handleContextMenu}
+            channelType={currentChannel?.type}
+          />
+          <MessageInput
+            onSendMessage={handleSendMessage}
+            placeholder={`Message ${currentChannel?.name || ''}`}
+            currentChannel={currentChannel}
+          />
+        </div>
+      ) : (
+        <div className="flex-1 flex items-center justify-center text-gray-500">
+          <div className="text-center">
+            <h2 className="text-xl mb-2">Welcome to ChatGenius</h2>
+            <p>Select a channel or start a conversation to begin chatting</p>
+          </div>
+        </div>
+      )}
 
       {activeThread && (
         <div className="w-96 border-l border-green-800/50">
@@ -479,6 +512,13 @@ const ChatInterface = () => {
           onClose={() => setContextMenu(null)}
           onReply={handleReply}
           onDelete={handleDeleteMessage}
+        />
+      )}
+
+      {showCreateChannel && (
+        <CreateChannelModal
+          onClose={() => setShowCreateChannel(false)}
+          onChannelCreated={handleChannelCreated}
         />
       )}
     </div>

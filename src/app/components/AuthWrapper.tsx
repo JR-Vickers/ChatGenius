@@ -5,6 +5,7 @@ import ChatInterface from './ChatInterface';
 import AuthForm from './AuthForm';
 import { createSupabaseClient } from '@/utils/supabase';
 import { Session } from '@supabase/supabase-js';
+import ProfileSetup from './ProfileSetup';
 
 const supabase = createSupabaseClient();
 
@@ -13,19 +14,24 @@ export default function AuthWrapper() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('AuthWrapper: Initializing...');
+    
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('AuthWrapper: Got session:', session?.user?.id);
       setSession(session);
       setLoading(false);
     });
 
     const {
-        data: { subscription },
+      data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-        setSession(session);
+      console.log('AuthWrapper: Auth state changed:', _event, session?.user?.id);
+      setSession(session);
     });
 
     return () => {
-        subscription.unsubscribe();
+      console.log('AuthWrapper: Cleaning up subscription');
+      subscription.unsubscribe();
     };
   }, []);
 
@@ -33,5 +39,12 @@ export default function AuthWrapper() {
     return <div>Loading...</div>;
   }
 
-  return session ? <ChatInterface /> : <AuthForm />;
+  return session ? (
+    <>
+      <ProfileSetup user={session.user} />
+      <ChatInterface />
+    </>
+  ) : (
+    <AuthForm />
+  );
 }

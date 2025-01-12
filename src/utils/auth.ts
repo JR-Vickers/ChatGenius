@@ -83,13 +83,22 @@ export const signUp = async (email: string, password: string, username: string):
   }
 };
 
-export const signIn = async (email: string, password: string) => {
+export const signIn = async (email: string, password: string): Promise<SignInResponse> => {
+  console.log('Auth: Starting signin for:', email);
   const supabase = createSupabaseClient();
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-  return { data, error };
+  
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    
+    console.log('Auth: Signin result:', { userId: data?.user?.id, error });
+    return { data, error };
+  } catch (err) {
+    console.error('Auth: Unexpected signin error:', err);
+    return { data: null, error: err as AuthError };
+  }
 };
 
 export const signOut = async () => {
