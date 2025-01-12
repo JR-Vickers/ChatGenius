@@ -8,7 +8,7 @@ const supabase = createSupabaseClient();
 
 interface FileUploadProps {
   channelId: string;
-  onUploadComplete: (fileMetadata: any) => void;
+  onUploadComplete: (fileMetadata: { id: string; name: string; type: string; size: number; path: string }) => void;
 }
 
 export default function FileUpload({ channelId, onUploadComplete }: FileUploadProps) {
@@ -50,7 +50,7 @@ export default function FileUpload({ channelId, onUploadComplete }: FileUploadPr
         const filePath = `${channelId}/${Date.now()}-${file.name}`;
 
         // Upload to storage
-        const { data: storageData, error: storageError } = await supabase.storage
+        const { error: storageError } = await supabase.storage
           .from('files')
           .upload(filePath, file);
 
@@ -81,12 +81,6 @@ export default function FileUpload({ channelId, onUploadComplete }: FileUploadPr
       setError(error instanceof Error ? error.message : 'Upload failed');
     } finally {
       setIsUploading(false);
-    }
-  };
-
-  const options = {
-    onUploadProgress: (progress: number) => {
-      setUploadProgress(progress);
     }
   };
 

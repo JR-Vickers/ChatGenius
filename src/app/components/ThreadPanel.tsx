@@ -55,7 +55,7 @@ export default function ThreadPanel({
     // Check for file message format: [File: filename](filepath)
     const fileMatch = message.content.match(/\[File: (.*?)\]\((.*?)\)/);
     if (fileMatch) {
-      const [_, fileName, filePath] = fileMatch;
+      const [fileName, filePath] = fileMatch;
       return (
         <FilePreview
           file={{

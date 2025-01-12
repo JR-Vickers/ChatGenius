@@ -10,36 +10,16 @@ import type { Channel } from '../../types/channel';
 import MessageContextMenu from './MessageContextMenu';
 import ThreadPanel from './ThreadPanel';
 import MessageInput from './MessageInput';
-import { usePresence } from '@/hooks/usePresence';
 import UserList from './UserList';
 import ChannelList from './ChannelList';
 import MessageList from './MessageList';
-import UserSearchModal from './UserSearchModal';
 
 const supabase = createSupabaseClient();
 
 // Add this temporarily to your ChatInterface.tsx, near the top:
 console.log('Current Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
 
-const formatTimestamp = (timestamp: string | null) => {
-  if (!timestamp) return '';
-  try {
-    const date = new Date(timestamp);
-    if (isNaN(date.getTime())) return 'Invalid Date';
-    
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    });
-  } catch (e) {
-    console.error('Error formatting timestamp:', e);
-    return 'Invalid Date';
-  }
-};
-
 const ChatInterface = () => {
-  const [newMessage, setNewMessage] = useState('');
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const queryClient = useQueryClient();
   const [currentChannel, setCurrentChannel] = useState<Channel | null>(null);
@@ -48,26 +28,11 @@ const ChatInterface = () => {
     message: Message;
     position: { x: number; y: number };
   } | null>(null);
-  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [activeThread, setActiveThread] = useState<Message | null>(null);
-  const [showUserSearch, setShowUserSearch] = useState(false);
 
-  // Fetch channels
-  const { data: channels = [] } = useQuery<Channel[]>({
-    queryKey: ['channels'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('channels')
-        .select('*')
-        .order('name');
-
-      if (error) throw error;
-      return data || [];
-    },
-  });
 
   // Main channel messages - only show non-threaded messages
-  const { data: messages = [], isLoading } = useQuery<Message[]>({
+  const { data: messages = [] } = useQuery<Message[]>({
     queryKey: ['messages', currentChannel?.id],
     queryFn: async () => {
       console.log('Fetching messages for channel:', currentChannel?.id);
