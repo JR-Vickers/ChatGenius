@@ -11,11 +11,16 @@ interface Props {
   onSelectUser: (userId: string) => Promise<void>;
 }
 
+interface UserProfile {
+  id: string;
+  username: string;
+}
+
 export default function UserSearchModal({ onClose, onSelectUser }: Props) {
   const [search, setSearch] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { data: users = [], isLoading } = useQuery({
+  const { data: users = [], isLoading } = useQuery<UserProfile[]>({
     queryKey: ['users', search],
     queryFn: async () => {
       if (!search.trim()) return [];
@@ -31,7 +36,7 @@ export default function UserSearchModal({ onClose, onSelectUser }: Props) {
         .limit(10);
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as UserProfile[];
     },
     enabled: search.length > 0
   });
@@ -67,7 +72,7 @@ export default function UserSearchModal({ onClose, onSelectUser }: Props) {
           ) : users.length > 0 ? (
             users.map((user) => (
               <div
-                key={user.id}
+                key={user.id as string}
                 onClick={() => handleSelectUser(user.id)}
                 className="cursor-pointer p-2 hover:bg-green-900/20 text-gray-300 hover:text-gray-200"
               >

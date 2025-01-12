@@ -72,7 +72,7 @@ export default function FileUpload({ channelId, onUploadComplete }: FileUploadPr
 
         if (fileError) throw fileError;
 
-        onUploadComplete(fileData);
+        onUploadComplete(fileData as { id: string; name: string; type: string; size: number; path: string });
       }
 
       queryClient.invalidateQueries({ queryKey: ['messages', channelId] });

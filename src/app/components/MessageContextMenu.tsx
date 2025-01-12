@@ -55,7 +55,9 @@ export default function MessageContextMenu({
         <button 
           className="block w-full text-left px-4 py-2 hover:bg-gray-700 text-red-500"
           onClick={() => {
-            onDelete(message);
+            if (onDelete) {
+              onDelete(message);
+            }
             onClose();
           }}
         >

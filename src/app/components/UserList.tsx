@@ -15,7 +15,7 @@ export default function UserList() {
         {onlineUsers && onlineUsers.map((user: Presence) => (
           <div key={user.id} className="flex items-center">
             <span className="w-2 h-2 rounded-full bg-green-500 mr-2"></span>
-            <span className="text-gray-300">{user.profiles?.username || 'anonymous'}</span>
+            <span className="text-gray-300">{user.username || 'anonymous'}</span>
           </div>
         ))}
       </div>

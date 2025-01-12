@@ -22,7 +22,7 @@ export default function ThreadPanel({
   onClose,
   placeholder 
 }: ThreadPanelProps) {
-  const { data: threadMessages = [] } = useQuery<Message[]>({
+  const { data: threadMessages = [] } = useQuery<Message[], Error, Message[]>({
     queryKey: ['thread', parentMessage?.id],
     queryFn: async () => {
       if (!parentMessage?.id) return [];
@@ -36,10 +36,13 @@ export default function ThreadPanel({
           channel_id,
           user_id,
           thread_id,
-          profiles (username)
+          profiles:profiles!user_id (
+            username
+          )
         `)
         .eq('thread_id', parentMessage.id)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: true })
+        .returns<Message[]>();
 
       if (error) {
         console.error('Error fetching thread messages:', error);

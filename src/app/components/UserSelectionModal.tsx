@@ -23,7 +23,7 @@ export default function UserSelectionModal({ onClose, onUserSelected }: Props) {
         .select('id, username')
         .neq('id', user?.id);
       
-      setUsers(data || []);
+      setUsers(data as Array<{ id: string; username: string }> || []);
       setLoading(false);
     };
     
