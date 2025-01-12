@@ -78,11 +78,15 @@ const ChatInterface = () => {
     enabled: !!currentChannel?.id
   });
 
-  // Message subscription
+  // Message subscription (first instance)
   useEffect(() => {
-    if (!currentChannel?.id) return;
+    if (!currentChannel?.id) {
+      console.log('🔄 [SUB-1] Message subscription skipped - no channel ID');
+      return;
+    }
     
-    console.log('🔌 Setting up message subscription for channel:', currentChannel.id);
+    console.log(`🔄 [SUB-1] Setting up message subscription for channel: ${currentChannel.id}`);
+    console.log(`🔄 [SUB-1] Channel details:`, currentChannel);
     setIsMessageSubReady(false);
     
     const channel = supabase
@@ -96,25 +100,32 @@ const ChatInterface = () => {
           filter: `channel_id=eq.${currentChannel.id}`
         },
         (payload) => {
-          console.log('📨 Message change:', payload);
+          console.log('📨 [SUB-1] Message change detected:', {
+            payload,
+            channelId: currentChannel.id,
+            timestamp: new Date().toISOString()
+          });
           queryClient.invalidateQueries({ queryKey: ['messages', currentChannel.id] });
         }
       )
       .subscribe((status) => {
-        console.log('📡 Message sub status:', status);
+        console.log(`📡 [SUB-1] Message subscription status changed: ${status}`, {
+          channelId: currentChannel.id,
+          timestamp: new Date().toISOString()
+        });
         setIsMessageSubReady(status === 'SUBSCRIBED');
       });
 
     return () => {
-      console.log('🔌 Cleaning up message subscription');
+      console.log(`🔌 [SUB-1] Cleaning up message subscription for channel: ${currentChannel.id}`);
       setIsMessageSubReady(false);
       supabase.removeChannel(channel);
     };
   }, [currentChannel?.id, queryClient]);
 
-  // Channel subscription
+  // Channel subscription (first instance)
   useEffect(() => {
-    console.log('🔌 Setting up channel subscription');
+    console.log('🔄 [SUB-2] Setting up channel subscription');
     setIsChannelSubReady(false);
 
     const channel = supabase
@@ -127,17 +138,24 @@ const ChatInterface = () => {
           table: 'channels'
         },
         (payload) => {
-          console.log('📨 Channel change:', payload);
+          console.log('📨 [SUB-2] Channel change detected:', {
+            payload,
+            timestamp: new Date().toISOString(),
+            type: 'channel_changes'
+          });
           refetchChannels();
         }
       )
       .subscribe((status) => {
-        console.log('📡 Channel sub status:', status);
+        console.log(`📡 [SUB-2] Channel subscription status: ${status}`, {
+          timestamp: new Date().toISOString(),
+          type: 'channel_changes'
+        });
         setIsChannelSubReady(status === 'SUBSCRIBED');
       });
 
     return () => {
-      console.log('🔌 Cleaning up channel subscription');
+      console.log('🔌 [SUB-2] Cleaning up channel subscription');
       setIsChannelSubReady(false);
       supabase.removeChannel(channel);
     };
@@ -154,10 +172,15 @@ const ChatInterface = () => {
     return () => window.removeEventListener('focus', handleFocus);
   }, [currentChannel?.id, queryClient]);
 
+  // Message subscription (second instance)
   useEffect(() => {
-    if (!currentChannel) return;
+    if (!currentChannel) {
+      console.log('🔄 [SUB-3] Message subscription skipped - no channel');
+      return;
+    }
 
-    // Subscribe to messages for current channel
+    console.log(`🔄 [SUB-3] Setting up duplicate message subscription for channel: ${currentChannel.id}`);
+    
     const channel = supabase
       .channel(`messages:${currentChannel.id}`)
       .on(
@@ -169,8 +192,11 @@ const ChatInterface = () => {
           filter: `channel_id=eq.${currentChannel.id}`
         },
         (payload) => {
-          console.log('Real-time update:', payload);
-          // Refresh messages
+          console.log('📨 [SUB-3] Message change detected (duplicate sub):', {
+            payload,
+            channelId: currentChannel.id,
+            timestamp: new Date().toISOString()
+          });
           queryClient.invalidateQueries({ 
             queryKey: ['messages', currentChannel.id] 
           });
@@ -178,13 +204,16 @@ const ChatInterface = () => {
       )
       .subscribe();
 
-    // Cleanup subscription
     return () => {
+      console.log(`🔌 [SUB-3] Cleaning up duplicate message subscription for channel: ${currentChannel.id}`);
       supabase.removeChannel(channel);
     };
   }, [currentChannel?.id, queryClient]);
 
+  // Channel subscription (second instance)
   useEffect(() => {
+    console.log('🔄 [SUB-4] Setting up duplicate channel subscription');
+    
     const channel = supabase
       .channel('channel_changes')
       .on(
@@ -195,27 +224,29 @@ const ChatInterface = () => {
           table: 'channels'
         },
         () => {
+          console.log('📨 [SUB-4] Channel change detected (duplicate sub)', {
+            timestamp: new Date().toISOString(),
+            type: 'channel_changes'
+          });
           refetchChannels();
         }
       )
       .subscribe();
 
     return () => {
+      console.log('🔌 [SUB-4] Cleaning up duplicate channel subscription');
       supabase.removeChannel(channel);
     };
   }, [refetchChannels]);
 
-  const handleChannelCreated = (channel: Channel) => {
-    console.log('Channel created:', channel);
-    setShowCreateChannel(false);
-    setCurrentChannel(channel);
-    queryClient.invalidateQueries({ queryKey: ['channels'] });
-  };
-
+  // Thread subscription
   useEffect(() => {
-    if (!activeThread?.id) return;
+    if (!activeThread?.id) {
+      console.log('🔄 [SUB-5] Thread subscription skipped - no active thread');
+      return;
+    }
     
-    console.log('🔌 Setting up thread subscription for:', activeThread.id);
+    console.log(`🔄 [SUB-5] Setting up thread subscription for: ${activeThread.id}`);
     
     const channel = supabase
       .channel(`thread-${activeThread.id}`)
@@ -228,17 +259,28 @@ const ChatInterface = () => {
           filter: `thread_id=eq.${activeThread.id}`
         },
         (payload) => {
-          console.log('Thread message change:', payload);
+          console.log('📨 [SUB-5] Thread message change:', {
+            payload,
+            threadId: activeThread.id,
+            timestamp: new Date().toISOString()
+          });
           queryClient.invalidateQueries({ queryKey: ['thread', activeThread.id] });
         }
       )
       .subscribe();
 
     return () => {
-      console.log('Cleaning up thread subscription');
+      console.log(`🔌 [SUB-5] Cleaning up thread subscription for: ${activeThread.id}`);
       channel.unsubscribe();
     };
   }, [activeThread?.id, queryClient]);
+
+  const handleChannelCreated = (channel: Channel) => {
+    console.log('Channel created:', channel);
+    setShowCreateChannel(false);
+    setCurrentChannel(channel);
+    queryClient.invalidateQueries({ queryKey: ['channels'] });
+  };
 
   const handleSendMessage = async (content: string) => {
     if (!currentChannel?.id) return;

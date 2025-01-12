@@ -5,9 +5,6 @@ import { Presence } from '@/types/presence';
 
 export default function UserList() {
     const { onlineUsers } = usePresence();
-  
-    console.log('Online users (detailed):', JSON.stringify(onlineUsers, null, 2));
-  
     return (
       <div className="w-48 border-l border-green-800/50 p-2">
         <div className="text-green-500 mb-2">[Users]</div>
