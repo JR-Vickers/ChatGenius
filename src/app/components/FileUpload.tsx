@@ -16,7 +16,7 @@ export default function FileUpload({ channelId, onUploadComplete }: FileUploadPr
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
-  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [uploadProgress] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
 
   const handleUpload = async (files: FileList | null) => {

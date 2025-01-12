@@ -146,90 +146,11 @@ const ChatInterface = () => {
     };
   }, [currentChannel?.id, queryClient]);
 
-  const sendMessage = async (content: string, isThreadReply = false) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) throw new Error('Not authenticated');
-      if (!currentChannel) throw new Error('No channel selected');
-
-      const messageData = {
-        content,
-        channel_id: currentChannel.id,
-        user_id: user.id,
-        // Only set thread_id if it's explicitly a thread reply
-        thread_id: isThreadReply ? activeThread?.id : null,
-        parent_id: null
-      };
-
-      console.log('Sending message:', messageData);
-
-      const { error } = await supabase
-        .from('messages')
-        .insert([messageData]);
-
-      if (error) throw error;
-    } catch (err) {
-      console.error('Failed to send message:', err);
-      throw err;
-    }
-  };
-
-  const handleLogout = async () => {
-    await signOut();
-  };
-
-  const handleCreateChannel = () => {
-    console.log('Opening create channel modal');
-    setShowCreateChannel(true);
-  };
-
   const handleChannelCreated = (channel: Channel) => {
     console.log('Channel created:', channel);
     setShowCreateChannel(false);
     setCurrentChannel(channel);
     queryClient.invalidateQueries({ queryKey: ['channels'] });
-  };
-
-  // Thread messages query
-  const { data: threadMessages = [], isLoading: isThreadLoading } = useQuery<Message[]>({
-    queryKey: ['thread', activeThread?.id],
-    queryFn: async () => {
-      console.log('Fetching thread messages for:', activeThread?.id);
-      
-      if (!activeThread?.id) {
-        console.log('No active thread');
-        return [];
-      }
-      
-      const { data, error } = await supabase
-        .from('messages')
-        .select(`
-          id,
-          content,
-          created_at,
-          channel_id,
-          user_id,
-          thread_id,
-          profiles (username)
-        `)
-        .eq('thread_id', activeThread.id)
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching thread messages:', error);
-        throw error;
-      }
-
-      console.log('Thread messages fetched:', data);
-      return data || [];
-    },
-    enabled: !!activeThread?.id
-  });
-
-  const handleReplyInThread = (message: Message) => {
-    setActiveThread(message);
-    setContextMenu(null);
   };
 
   useEffect(() => {
@@ -319,7 +240,7 @@ const ChatInterface = () => {
       if (!user) return;
 
       // Check if DM already exists using junction table
-      const { data: existingDM, error: checkError } = await supabase
+      const { data: existingDM } = await supabase
         .from('channels')
         .select(`
           *,
@@ -438,6 +359,11 @@ const ChatInterface = () => {
       
       {currentChannel ? (
         <div className="flex-1 flex flex-col">
+          {!isSubscriptionReady && (
+            <div className="text-yellow-500 text-sm p-2">
+              [Connecting to channel...]
+            </div>
+          )}
           <MessageList
             messages={messages || []}
             onContextMenu={handleContextMenu}
