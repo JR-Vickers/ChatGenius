@@ -31,7 +31,7 @@ const ChatInterface = () => {
 
 
   // Main channel messages - only show non-threaded messages
-  const { data: messages = [] } = useQuery<Message[]>({
+  const { data: messages = [] } = useQuery({
     queryKey: ['messages', currentChannel?.id],
     queryFn: async () => {
       console.log('Fetching messages for channel:', currentChannel?.id);
@@ -51,14 +51,15 @@ const ChatInterface = () => {
         `)
         .eq('channel_id', currentChannel.id)
         .is('thread_id', null)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: true })
+        .returns<Message[]>();
 
       if (error) {
         console.error('Error fetching messages:', error);
         return [];
       }
 
-      return data;
+      return data || [];
     },
     enabled: !!currentChannel?.id
   });
@@ -252,7 +253,7 @@ const ChatInterface = () => {
           )
         `)
         .eq('type', 'dm')
-        .contains('channel_members', [{ user_id: user.id }, { user_id: userId }]);
+        .returns<Channel[]>();
 
       if (existingDM && existingDM.length > 0) {
         setCurrentChannel(existingDM[0]);
@@ -311,12 +312,13 @@ const ChatInterface = () => {
             )
           )
         `)
-        .eq('id', newChannel.id)
+        .eq('id', newChannel.id as string)
         .single();
-
       if (fetchError) throw fetchError;
       
-      setCurrentChannel(completeDM);
+      // Cast completeDM to Channel type since we know the shape matches
+      const channelData = completeDM as unknown as Channel;
+      setCurrentChannel(channelData);
       queryClient.invalidateQueries({ queryKey: ['dms'] });
     } catch (error) {
       console.error('Detailed error creating DM:', error);
@@ -331,7 +333,8 @@ const ChatInterface = () => {
     const { error } = await supabase
       .from('messages')
       .delete()
-      .match({ id: message.id });
+      .eq('id', message.id)
+      .returns<Message>();
 
     if (error) {
       console.error('Error deleting message:', error);

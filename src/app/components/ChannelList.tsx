@@ -21,9 +21,17 @@ export default function ChannelList({ currentChannel, onSelectChannel, onCreateC
   const fetchChannels = async () => {
     const { data } = await supabase
       .from('channels')
-      .select('*')
-      .order('created_at', { ascending: true })
-      .returns<Channel[]>();
+      .select(`
+        *,
+        channel_members!inner (
+          user_id,
+          profiles!inner (
+            id,
+            username
+          )
+        )
+      `)
+      .order('created_at', { ascending: true });
     
     setChannels(data || []);
   };
