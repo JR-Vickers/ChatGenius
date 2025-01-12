@@ -32,8 +32,7 @@ export function usePresence() {
       }
       
       console.log('Presence query result:', data);
-      const typedData = (data || []) as unknown as Presence[];
-      return typedData;
+      return data as unknown as Presence[];
     },
     // Refresh every 30 seconds
     refetchInterval: 30000

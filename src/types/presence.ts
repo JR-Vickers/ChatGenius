@@ -4,5 +4,7 @@ export interface Presence {
   status: string;
   last_seen: string;
   updated_at: string;
-  username: string;
+  profiles?: {
+    username: string;
+  };
 } 
