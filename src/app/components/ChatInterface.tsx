@@ -29,6 +29,18 @@ const ChatInterface = () => {
   } | null>(null);
   const [activeThread, setActiveThread] = useState<Message | null>(null);
 
+  const { data: channels = [], refetch: refetchChannels } = useQuery({
+    queryKey: ['channels'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('channels')
+        .select('*')
+        .order('created_at', { ascending: true });
+      
+      if (error) throw error;
+      return data || [];
+    }
+  });
 
   // Main channel messages - only show non-threaded messages
   const { data: messages = [] } = useQuery({
@@ -145,6 +157,27 @@ const ChatInterface = () => {
       supabase.removeChannel(channel);
     };
   }, [currentChannel?.id, queryClient]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('channel_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'channels'
+        },
+        () => {
+          refetchChannels();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [refetchChannels]);
 
   const handleChannelCreated = (channel: Channel) => {
     console.log('Channel created:', channel);
