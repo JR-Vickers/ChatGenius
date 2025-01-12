@@ -28,6 +28,8 @@ const ChatInterface = () => {
     position: { x: number; y: number };
   } | null>(null);
   const [activeThread, setActiveThread] = useState<Message | null>(null);
+  const [isMessageSubReady, setIsMessageSubReady] = useState(false);
+  const [isChannelSubReady, setIsChannelSubReady] = useState(false);
 
   const { data: channels = [], refetch: refetchChannels } = useQuery({
     queryKey: ['channels'],
@@ -76,46 +78,70 @@ const ChatInterface = () => {
     enabled: !!currentChannel?.id
   });
 
-  // Realtime subscription
+  // Message subscription
   useEffect(() => {
     if (!currentChannel?.id) return;
     
-    console.log('🔌 Setting up subscription for channel:', currentChannel.id);
-    setIsSubscriptionReady(false);
+    console.log('🔌 Setting up message subscription for channel:', currentChannel.id);
+    setIsMessageSubReady(false);
     
     const channel = supabase
       .channel(`messages:${currentChannel.id}`)
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'messages',
           filter: `channel_id=eq.${currentChannel.id}`
         },
         (payload) => {
-          console.log('📨 Received message:', payload);
-          // Refresh main messages
+          console.log('📨 Message change:', payload);
           queryClient.invalidateQueries({ queryKey: ['messages', currentChannel.id] });
-          
-          // If this is a thread message, also refresh thread messages
-          if (payload.new.thread_id) {
-            queryClient.invalidateQueries({ queryKey: ['thread', payload.new.thread_id] });
-          }
         }
       )
       .subscribe((status) => {
-        console.log('📡 Subscription status:', status);
-        if (status === 'SUBSCRIBED') {
-          setIsSubscriptionReady(true);
-        }
+        console.log('📡 Message sub status:', status);
+        setIsMessageSubReady(status === 'SUBSCRIBED');
       });
 
     return () => {
-      setIsSubscriptionReady(false);
+      console.log('🔌 Cleaning up message subscription');
+      setIsMessageSubReady(false);
       supabase.removeChannel(channel);
     };
   }, [currentChannel?.id, queryClient]);
+
+  // Channel subscription
+  useEffect(() => {
+    console.log('🔌 Setting up channel subscription');
+    setIsChannelSubReady(false);
+
+    const channel = supabase
+      .channel('channel_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'channels'
+        },
+        (payload) => {
+          console.log('📨 Channel change:', payload);
+          refetchChannels();
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Channel sub status:', status);
+        setIsChannelSubReady(status === 'SUBSCRIBED');
+      });
+
+    return () => {
+      console.log('🔌 Cleaning up channel subscription');
+      setIsChannelSubReady(false);
+      supabase.removeChannel(channel);
+    };
+  }, [refetchChannels]);
 
   useEffect(() => {
     const handleFocus = () => {
