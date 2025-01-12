@@ -3,10 +3,13 @@
 import { useState, useEffect } from 'react';
 import { signOut } from '@/utils/auth';
 import { createSupabaseClient } from '@/utils/supabase';
-import { Message, MessageWithProfile } from '@/types/message';
+import { Message } from '@/types/message';
 import CreateChannelModal from './CreateChannelModal';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Channel } from '../../types/channel';
+import MessageContextMenu from './MessageContextMenu';
+import ThreadPanel from './ThreadPanel';
+import MessageInput from './MessageInput';
 
 const supabase = createSupabaseClient();
 
@@ -30,46 +33,15 @@ const formatTimestamp = (timestamp: string | null) => {
   }
 };
 
-// Add this type if you don't have it
-interface MessageInputProps {
-  onSendMessage: (content: string) => Promise<void>;
-}
-
-// Create a separate MessageInput component
-const MessageInput = ({ onSendMessage }: MessageInputProps) => {
-  const [message, setMessage] = useState('');
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); // Prevent form submission refresh
-    if (!message.trim()) return;
-    
-    try {
-      await onSendMessage(message);
-      setMessage(''); // Clear input on success
-    } catch (error) {
-      console.error('Failed to send message:', error);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="mt-4">
-      <input
-        type="text"
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        placeholder="Type a message..."
-        className="w-full bg-black border border-green-800/50 p-2 text-gray-200"
-      />
-    </form>
-  );
-};
-
 const ChatInterface = () => {
   const [newMessage, setNewMessage] = useState('');
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const queryClient = useQueryClient();
   const [currentChannel, setCurrentChannel] = useState<Channel | null>(null);
   const [isSubscriptionReady, setIsSubscriptionReady] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{x: number; y: number; messageId: string} | null>(null);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [activeThread, setActiveThread] = useState<Message | null>(null);
 
   // Fetch channels
   const { data: channels = [] } = useQuery<Channel[]>({
@@ -85,16 +57,26 @@ const ChatInterface = () => {
     },
   });
 
-  // Fetch messages for current channel
-  const { data: messages = [], isLoading } = useQuery<MessageWithProfile[]>({
+  // Main channel messages - only show non-threaded messages
+  const { data: messages = [], isLoading } = useQuery<Message[]>({
     queryKey: ['messages', currentChannel?.id],
     queryFn: async () => {
-      const { data } = await supabase
+      console.log('Fetching messages for channel:', currentChannel?.id);
+      
+      if (!currentChannel?.id) return [];
+      
+      const { data, error } = await supabase
         .from('messages')
-        .select(`*`)
-        .eq('channel_id', currentChannel?.id)
+        .select('*')
+        .eq('channel_id', currentChannel.id)
+        .is('thread_id', null)
         .order('created_at', { ascending: true });
-      console.log('Messages with profiles:', data); // Debug log
+
+      if (error) {
+        console.error('Error fetching messages:', error);
+        throw error;
+      }
+
       return data || [];
     },
     enabled: !!currentChannel?.id
@@ -118,9 +100,14 @@ const ChatInterface = () => {
           filter: `channel_id=eq.${currentChannel.id}`
         },
         (payload) => {
-          console.log('📨 Received realtime message:', payload);
-          // Immediately fetch the latest messages instead of trying to handle the payload
+          console.log('📨 Received message:', payload);
+          // Refresh main messages
           queryClient.invalidateQueries({ queryKey: ['messages', currentChannel.id] });
+          
+          // If this is a thread message, also refresh thread messages
+          if (payload.new.thread_id) {
+            queryClient.invalidateQueries({ queryKey: ['thread', payload.new.thread_id] });
+          }
         }
       )
       .subscribe((status) => {
@@ -177,20 +164,27 @@ const ChatInterface = () => {
     };
   }, [currentChannel?.id, queryClient]);
 
-  const sendMessage = async (content: string) => {
+  const sendMessage = async (content: string, isThreadReply = false) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) throw new Error('Not authenticated');
       if (!currentChannel) throw new Error('No channel selected');
 
+      const messageData = {
+        content,
+        channel_id: currentChannel.id,
+        user_id: user.id,
+        // Only set thread_id if it's explicitly a thread reply
+        thread_id: isThreadReply ? activeThread?.id : null,
+        parent_id: null
+      };
+
+      console.log('Sending message:', messageData);
+
       const { error } = await supabase
         .from('messages')
-        .insert([{
-          content,
-          channel_id: currentChannel.id,
-          user_id: user.id
-        }]);
+        .insert([messageData]);
 
       if (error) throw error;
     } catch (err) {
@@ -232,6 +226,67 @@ const ChatInterface = () => {
       throw err;
     }
   };
+
+  // Thread messages query
+  const { data: threadMessages = [], isLoading: isThreadLoading } = useQuery<Message[]>({
+    queryKey: ['thread', activeThread?.id],
+    queryFn: async () => {
+      console.log('Fetching thread messages for:', activeThread?.id);
+      
+      if (!activeThread?.id) {
+        console.log('No active thread');
+        return [];
+      }
+      
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('thread_id', activeThread.id)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching thread messages:', error);
+        throw error;
+      }
+
+      console.log('Thread messages fetched:', data);
+      return data || [];
+    },
+    enabled: !!activeThread?.id
+  });
+
+  const handleReplyInThread = (message: Message) => {
+    setActiveThread(message);
+    setContextMenu(null);
+  };
+
+  useEffect(() => {
+    if (!activeThread?.id) return;
+    
+    console.log('🔌 Setting up thread subscription for:', activeThread.id);
+    
+    const channel = supabase
+      .channel(`thread-${activeThread.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+          filter: `thread_id=eq.${activeThread.id}`
+        },
+        (payload) => {
+          console.log('Thread message change:', payload);
+          queryClient.invalidateQueries({ queryKey: ['thread', activeThread.id] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('Cleaning up thread subscription');
+      channel.unsubscribe();
+    };
+  }, [activeThread?.id, queryClient]);
 
   return (
     <div className="flex flex-col h-screen bg-black font-mono text-gray-200">
@@ -275,19 +330,30 @@ const ChatInterface = () => {
           )}
         </div>
 
-        {/* Chat area */}
+        {/* Main chat area */}
         <div className="flex-1 flex flex-col">
-          <div className="flex-1 overflow-y-auto p-4">
-            {!isSubscriptionReady && (
-              <div className="text-yellow-500 mb-2">
-                [Connecting to channel...]
+          <div className="flex-1 overflow-y-auto p-2">
+            {!currentChannel ? (
+              <div className="text-gray-500 text-center mt-4">
+                Please select a channel
               </div>
-            )}
-            {isLoading ? (
+            ) : isLoading ? (
               <div>Loading messages...</div>
             ) : (
               messages.map((message) => (
-                <div key={message.id} className="py-1">
+                <div 
+                  key={message.id} 
+                  className="py-1 cursor-pointer"
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    console.log('Right click detected!');
+                    setContextMenu({
+                      x: e.clientX,
+                      y: e.clientY,
+                      messageId: message.id
+                    });
+                  }}
+                >
                   <span className="text-green-500">[</span>
                   <span className="text-gray-400">
                     {message.profiles?.username || 'anonymous'}
@@ -295,14 +361,52 @@ const ChatInterface = () => {
                   <span className="text-green-500">]</span>
                   <span className="text-green-500"> {formatTimestamp(message.created_at)}</span>
                   <span className="text-gray-300"> {message.content}</span>
+                  {message.id === activeThread?.id && (
+                    <span className="text-green-500 ml-2">[thread]</span>
+                  )}
                 </div>
               ))
             )}
           </div>
-
-          <MessageInput onSendMessage={sendMessage} />
+          
+          {currentChannel && (
+            <div className="p-2 border-t border-green-800/50">
+              <MessageInput 
+                onSendMessage={(content) => sendMessage(content, false)} 
+                placeholder={`Message #${currentChannel.name}`}
+              />
+            </div>
+          )}
         </div>
+
+        {/* Thread panel */}
+        {activeThread && (
+          <div className="w-96 border-l border-green-800/50">
+            <ThreadPanel
+              parentMessage={activeThread}
+              threadMessages={threadMessages}
+              onSendReply={(content) => sendMessage(content, true)}
+              onClose={() => setActiveThread(null)}
+              placeholder="Reply..."
+            />
+          </div>
+        )}
       </div>
+
+      {contextMenu && (
+        <MessageContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onReplyInThread={() => {
+            const message = messages.find(m => m.id === contextMenu.messageId);
+            if (message) {
+              setActiveThread(message);
+              setContextMenu(null);
+            }
+          }}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   );
 };
