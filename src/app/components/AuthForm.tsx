@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { signIn, signUp } from '@/utils/auth';
 import { AuthError } from '@supabase/supabase-js';
+import ProfileSetup from './ProfileSetup';
 
 const AuthForm = () => {
   const [email, setEmail] = useState('');
@@ -32,6 +33,10 @@ const AuthForm = () => {
       console.log('Confirmation email sent');
       setConfirmationSent(true);
     }
+  };
+
+  const handleSuccess = (user: User) => {
+    return <ProfileSetup user={user} />;
   };
 
   return (

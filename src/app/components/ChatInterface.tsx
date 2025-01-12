@@ -10,6 +10,10 @@ import type { Channel } from '../../types/channel';
 import MessageContextMenu from './MessageContextMenu';
 import ThreadPanel from './ThreadPanel';
 import MessageInput from './MessageInput';
+import { usePresence } from '@/hooks/usePresence';
+import UserList from './UserList';
+import ChannelList from './ChannelList';
+import MessageList from './MessageList';
 
 const supabase = createSupabaseClient();
 
@@ -39,7 +43,11 @@ const ChatInterface = () => {
   const queryClient = useQueryClient();
   const [currentChannel, setCurrentChannel] = useState<Channel | null>(null);
   const [isSubscriptionReady, setIsSubscriptionReady] = useState(false);
-  const [contextMenu, setContextMenu] = useState<{x: number; y: number; messageId: string} | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    message: Message;
+  } | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [activeThread, setActiveThread] = useState<Message | null>(null);
 
@@ -67,17 +75,25 @@ const ChatInterface = () => {
       
       const { data, error } = await supabase
         .from('messages')
-        .select('*')
+        .select(`
+          id,
+          content,
+          created_at,
+          channel_id,
+          user_id,
+          thread_id,
+          profiles (username)
+        `)
         .eq('channel_id', currentChannel.id)
         .is('thread_id', null)
         .order('created_at', { ascending: true });
 
       if (error) {
         console.error('Error fetching messages:', error);
-        throw error;
+        return [];
       }
 
-      return data || [];
+      return data;
     },
     enabled: !!currentChannel?.id
   });
@@ -197,34 +213,9 @@ const ChatInterface = () => {
     await signOut();
   };
 
-  const handleCreateChannel = async (channelName: string) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) throw new Error('Not authenticated');
-
-      const { data, error } = await supabase
-        .from('channels')
-        .insert([{ 
-          name: channelName,
-          created_by: user.id,
-          type: 'public'  // Explicitly set type
-        }])
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Channel creation error:', error);
-        throw new Error(error.message);
-      }
-
-      // Refresh the channels list
-      queryClient.invalidateQueries({ queryKey: ['channels'] });
-      return data;
-    } catch (err) {
-      console.error('Failed to create channel:', err);
-      throw err;
-    }
+  const handleCreateChannel = async () => {
+    console.log('Opening create channel modal');
+    setShowCreateChannel(true);
   };
 
   // Thread messages query
@@ -240,7 +231,15 @@ const ChatInterface = () => {
       
       const { data, error } = await supabase
         .from('messages')
-        .select('*')
+        .select(`
+          id,
+          content,
+          created_at,
+          channel_id,
+          user_id,
+          thread_id,
+          profiles (username)
+        `)
         .eq('thread_id', activeThread.id)
         .order('created_at', { ascending: true });
 
@@ -288,6 +287,56 @@ const ChatInterface = () => {
     };
   }, [activeThread?.id, queryClient]);
 
+  const handleSendMessage = async (content: string) => {
+    if (!currentChannel?.id) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('messages')
+      .insert([{
+        content,
+        channel_id: currentChannel.id,
+        user_id: user.id,
+        created_at: new Date().toISOString()
+      }]);
+
+    if (error) {
+      console.error('Error sending message:', error);
+    }
+  };
+
+  const handleSendReply = async (content: string) => {
+    if (!currentChannel?.id || !activeThread?.id) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('messages')
+      .insert([{
+        content,
+        channel_id: currentChannel.id,
+        user_id: user.id,
+        thread_id: activeThread.id,
+        created_at: new Date().toISOString()
+      }]);
+
+    if (error) {
+      console.error('Error sending reply:', error);
+    }
+  };
+
+  const handleContextMenu = (e: React.MouseEvent, message: Message) => {
+    e.preventDefault();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      message,
+    });
+  };
+
   return (
     <div className="flex flex-col h-screen bg-black font-mono text-gray-200">
       <div className="bg-green-900/30 text-gray-200 px-2 py-0.5 flex justify-between items-center border-b border-green-800/50">
@@ -298,113 +347,92 @@ const ChatInterface = () => {
       </div>
       
       <div className="flex flex-1 overflow-hidden">
-        {/* Channel sidebar */}
-        <div className="w-48 bg-black border-r border-green-800/50 p-2">
-          <div className="flex justify-between items-center mb-2">
-            <div className="text-green-500">[Channels]</div>
-            <button
-              onClick={() => setShowCreateChannel(true)}
-              className="text-green-500 hover:text-green-400"
-            >
-              [+]
-            </button>
-          </div>
-          {channels.map(channel => (
-            <div
-              key={channel.id}
-              onClick={() => setCurrentChannel(channel)}
-              className={`cursor-pointer px-2 py-1 ${
-                currentChannel?.id === channel.id ? 'bg-green-900/30' : ''
-              }`}
-            >
-              #{channel.name}
-            </div>
-          ))}
-          
-          {/* Add modal */}
-          {showCreateChannel && (
-            <CreateChannelModal
-              onClose={() => setShowCreateChannel(false)}
-              onSubmit={handleCreateChannel}
-            />
-          )}
+        {/* Left: Channels */}
+        <div className="w-48 border-r border-green-800/50">
+          <ChannelList 
+            channels={channels} 
+            selectedChannel={currentChannel}
+            onSelectChannel={setCurrentChannel}
+            onCreateChannel={handleCreateChannel}
+          />
         </div>
 
-        {/* Main chat area */}
-        <div className="flex-1 flex flex-col">
-          <div className="flex-1 overflow-y-auto p-2">
-            {!currentChannel ? (
-              <div className="text-gray-500 text-center mt-4">
-                Please select a channel
-              </div>
-            ) : isLoading ? (
-              <div>Loading messages...</div>
-            ) : (
-              messages.map((message) => (
-                <div 
-                  key={message.id} 
-                  className="py-1 cursor-pointer"
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    console.log('Right click detected!');
-                    setContextMenu({
-                      x: e.clientX,
-                      y: e.clientY,
-                      messageId: message.id
-                    });
-                  }}
-                >
-                  <span className="text-green-500">[</span>
-                  <span className="text-gray-400">
-                    {message.profiles?.username || 'anonymous'}
-                  </span>
-                  <span className="text-green-500">]</span>
-                  <span className="text-green-500"> {formatTimestamp(message.created_at)}</span>
-                  <span className="text-gray-300"> {message.content}</span>
-                  {message.id === activeThread?.id && (
-                    <span className="text-green-500 ml-2">[thread]</span>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-          
-          {currentChannel && (
-            <div className="p-2 border-t border-green-800/50">
-              <MessageInput 
-                onSendMessage={(content) => sendMessage(content, false)} 
-                placeholder={`Message #${currentChannel.name}`}
-              />
-            </div>
-          )}
+        {/* Middle: Chat Area */}
+        <div className="flex-1 flex flex-col min-w-0">
+          <MessageList 
+            messages={messages} 
+            onContextMenu={handleContextMenu}
+          />
+          <MessageInput onSendMessage={handleSendMessage} />
         </div>
 
-        {/* Thread panel */}
+        {/* Right Side: Thread Panel */}
         {activeThread && (
           <div className="w-96 border-l border-green-800/50">
             <ThreadPanel
               parentMessage={activeThread}
-              threadMessages={threadMessages}
-              onSendReply={(content) => sendMessage(content, true)}
+              onSendReply={handleSendReply}
               onClose={() => setActiveThread(null)}
-              placeholder="Reply..."
             />
           </div>
         )}
+
+        {/* Far Right: Users List */}
+        <UserList />
       </div>
 
+      {/* Add the context menu */}
       {contextMenu && (
         <MessageContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
-          onReplyInThread={() => {
-            const message = messages.find(m => m.id === contextMenu.messageId);
-            if (message) {
-              setActiveThread(message);
-              setContextMenu(null);
+          onReplyInThread={() => handleReplyInThread(contextMenu.message)}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+
+      {showCreateChannel && (
+        <CreateChannelModal
+          onClose={() => {
+            console.log('Closing modal');
+            setShowCreateChannel(false);
+          }}
+          onSubmit={async (name) => {
+            console.log('Creating channel:', name);
+            try {
+              const { data: { user } } = await supabase.auth.getUser();
+              if (!user) {
+                console.error('No user found');
+                return;
+              }
+
+              const { data: channel, error } = await supabase
+                .from('channels')
+                .insert([{
+                  name: name,
+                  created_by: user.id,
+                  created_at: new Date().toISOString()
+                }])
+                .select()
+                .single();
+
+              if (error) {
+                console.error('Channel creation error:', error);
+                throw error;
+              }
+
+              console.log('Channel created:', channel);
+              setShowCreateChannel(false);
+              queryClient.invalidateQueries({ queryKey: ['channels'] });
+              
+              if (channel) {
+                setCurrentChannel(channel);
+              }
+            } catch (error) {
+              console.error('Error in channel creation:', error);
+              throw error;
             }
           }}
-          onClose={() => setContextMenu(null)}
         />
       )}
     </div>

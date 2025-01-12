@@ -1,0 +1,8 @@
+export interface Presence {
+  id: string;
+  user_id: string;
+  status: string;
+  last_seen: string;
+  updated_at: string;
+  username: string;
+} 

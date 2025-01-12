@@ -7,17 +7,26 @@ interface Props {
   onSubmit: (channelName: string) => Promise<void>;
 }
 
-const CreateChannelModal = ({ onClose, onSubmit }: Props) => {
+export default function CreateChannelModal({ onClose, onSubmit }: Props) {
   const [name, setName] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim()) {
+      setError('Channel name is required');
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      await onSubmit(name);
+      await onSubmit(name.trim());
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create channel');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -32,6 +41,7 @@ const CreateChannelModal = ({ onClose, onSubmit }: Props) => {
             onChange={(e) => setName(e.target.value)}
             className="w-full bg-black border border-green-800/50 p-2 text-gray-200 mb-4"
             placeholder="Channel name..."
+            disabled={isSubmitting}
           />
           {error && <div className="text-red-500 mb-4">{error}</div>}
           <div className="flex justify-end gap-2">
@@ -39,12 +49,14 @@ const CreateChannelModal = ({ onClose, onSubmit }: Props) => {
               type="button"
               onClick={onClose}
               className="text-green-500 hover:text-green-400"
+              disabled={isSubmitting}
             >
               [Cancel]
             </button>
             <button
               type="submit"
               className="text-green-500 hover:text-green-400"
+              disabled={isSubmitting}
             >
               [Create]
             </button>
@@ -53,6 +65,4 @@ const CreateChannelModal = ({ onClose, onSubmit }: Props) => {
       </div>
     </div>
   );
-};
-
-export default CreateChannelModal; 
+} 

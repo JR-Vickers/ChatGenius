@@ -1,51 +1,82 @@
 'use client';
 
 import { Message } from '@/types/message';
-import { formatTimestamp } from '../../utils/formatTime';
+import { formatTimestamp } from '@/utils/formatTime';
 import MessageInput from './MessageInput';
+import { useQuery } from '@tanstack/react-query';
+import { createSupabaseClient } from '@/utils/supabase';
+
+const supabase = createSupabaseClient();
 
 interface ThreadPanelProps {
   parentMessage: Message;
-  threadMessages: Message[];
   onSendReply: (content: string) => Promise<void>;
   onClose: () => void;
+  placeholder?: string;
 }
 
 export default function ThreadPanel({ 
   parentMessage, 
-  threadMessages, 
   onSendReply,
-  onClose 
+  onClose,
+  placeholder 
 }: ThreadPanelProps) {
+  const { data: threadMessages = [] } = useQuery<Message[]>({
+    queryKey: ['thread', parentMessage?.id],
+    queryFn: async () => {
+      if (!parentMessage?.id) return [];
+
+      const { data, error } = await supabase
+        .from('messages')
+        .select(`
+          id,
+          content,
+          created_at,
+          channel_id,
+          user_id,
+          thread_id,
+          profiles (username)
+        `)
+        .eq('thread_id', parentMessage.id)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching thread messages:', error);
+        return [];
+      }
+
+      return data || [];
+    },
+    enabled: !!parentMessage?.id
+  });
+
   return (
     <div className="flex flex-col h-full">
-      <div className="p-2 border-b border-green-800/50 flex justify-between items-center">
-        <div className="text-green-500">Thread</div>
-        <button onClick={onClose} className="text-green-500 hover:text-green-400">×</button>
-      </div>
-      
-      <div className="flex-1 overflow-y-auto p-2">
-        {/* Parent message */}
-        <div className="pb-2 mb-2 border-b border-green-800/50">
-          <div className="text-gray-200">{parentMessage.content}</div>
+      <div className="p-2 border-b border-green-800/50">
+        <div className="flex justify-between items-center">
+          <span className="text-green-500">Thread</span>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-400">×</button>
         </div>
+        <div className="mt-2">
+          <span className="text-gray-400">{parentMessage.profiles?.username || 'anonymous'}</span>
+          <span className="text-gray-300"> {parentMessage.content}</span>
+        </div>
+      </div>
 
-        {/* Thread replies */}
-        {threadMessages.map(message => (
-          <div key={message.id} className="py-1 flex items-center">
-            <span className="text-green-500">[</span>
-            <span className="text-gray-400">anonymous</span>
-            <span className="text-green-500">]</span>
-            <span className="text-green-500 ml-2">{formatTimestamp(message.created_at)}</span>
-            <span className="text-gray-300 ml-2">{message.content}</span>
+      <div className="flex-1 overflow-y-auto p-2">
+        {threadMessages?.map((message) => (
+          <div key={message.id} className="py-1">
+            <span className="text-gray-400">{message.profiles?.username || 'anonymous'}</span>
+            <span className="text-green-500"> {formatTimestamp(message.created_at)}</span>
+            <span className="text-gray-300"> {message.content}</span>
           </div>
         ))}
       </div>
 
       <div className="p-2 border-t border-green-800/50">
         <MessageInput 
-          onSendMessage={onSendReply} 
-          placeholder="Reply..."
+          onSendMessage={onSendReply}
+          placeholder={placeholder || "Reply to thread..."}
         />
       </div>
     </div>
