@@ -14,6 +14,7 @@ import { usePresence } from '@/hooks/usePresence';
 import UserList from './UserList';
 import ChannelList from './ChannelList';
 import MessageList from './MessageList';
+import UserSearchModal from './UserSearchModal';
 
 const supabase = createSupabaseClient();
 
@@ -50,6 +51,7 @@ const ChatInterface = () => {
   } | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [activeThread, setActiveThread] = useState<Message | null>(null);
+  const [showUserSearch, setShowUserSearch] = useState(false);
 
   // Fetch channels
   const { data: channels = [] } = useQuery<Channel[]>({
@@ -337,6 +339,78 @@ const ChatInterface = () => {
     });
   };
 
+  const handleCreateDM = async (userId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Check if DM already exists using junction table
+      const { data: existingDM, error: checkError } = await supabase
+        .from('channels')
+        .select(`
+          *,
+          channel_participants!inner (profile_id),
+          profiles:channel_participants(
+            profile_id,
+            profiles (username)
+          )
+        `)
+        .eq('type', 'dm')
+        .eq('channel_participants.profile_id', user.id)
+        .eq('channel_participants.profile_id', userId)
+        .single();
+
+      if (existingDM) {
+        setCurrentChannel(existingDM);
+        return;
+      }
+
+      // Create new DM channel
+      const { data: newChannel, error: channelError } = await supabase
+        .from('channels')
+        .insert([{
+          type: 'dm',
+          created_by: user.id,
+          name: `dm-${user.id}-${userId}` // Internal name
+        }])
+        .select()
+        .single();
+
+      if (channelError) throw channelError;
+
+      // Add both users to channel_participants
+      const { error: participantsError } = await supabase
+        .from('channel_participants')
+        .insert([
+          { channel_id: newChannel.id, profile_id: user.id },
+          { channel_id: newChannel.id, profile_id: userId }
+        ]);
+
+      if (participantsError) throw participantsError;
+
+      // Fetch the complete DM with participants
+      const { data: completeDM, error: fetchError } = await supabase
+        .from('channels')
+        .select(`
+          *,
+          profiles:channel_participants(
+            profile_id,
+            profiles (username)
+          )
+        `)
+        .eq('id', newChannel.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+      
+      setCurrentChannel(completeDM);
+      queryClient.invalidateQueries({ queryKey: ['dms'] });
+    } catch (error) {
+      console.error('Detailed error creating DM:', error);
+      throw error;
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-black font-mono text-gray-200">
       <div className="bg-green-900/30 text-gray-200 px-2 py-0.5 flex justify-between items-center border-b border-green-800/50">
@@ -354,6 +428,7 @@ const ChatInterface = () => {
             selectedChannel={currentChannel}
             onSelectChannel={setCurrentChannel}
             onCreateChannel={handleCreateChannel}
+            onCreateDM={() => setShowUserSearch(true)}
           />
         </div>
 
@@ -362,6 +437,7 @@ const ChatInterface = () => {
           <MessageList 
             messages={messages} 
             onContextMenu={handleContextMenu}
+            channelType={currentChannel?.type}
           />
           <MessageInput onSendMessage={handleSendMessage} />
         </div>
@@ -433,6 +509,13 @@ const ChatInterface = () => {
               throw error;
             }
           }}
+        />
+      )}
+
+      {showUserSearch && (
+        <UserSearchModal
+          onClose={() => setShowUserSearch(false)}
+          onSelectUser={handleCreateDM}
         />
       )}
     </div>
