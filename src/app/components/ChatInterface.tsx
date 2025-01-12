@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { signOut } from '@/utils/auth';
 import { createSupabaseClient } from '@/utils/supabase';
 import { Message } from '@/types/message';
 import CreateChannelModal from './CreateChannelModal';
