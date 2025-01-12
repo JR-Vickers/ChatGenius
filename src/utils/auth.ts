@@ -13,39 +13,30 @@ interface SignUpResponse {
 
 export const signUp = async (email: string, password: string, username: string): Promise<SignUpResponse> => {
   const supabase = createSupabaseClient();
-  console.log('Starting signup process for:', email, username);
-
+  
   try {
-    // Check username availability first
-    console.log('Checking username availability...');
-    const { data: existingUser, error: checkError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('username', username)
-      .single();
-
-    if (checkError && checkError.code !== 'PGRST116') {
-      console.error('Username check failed:', checkError);
-      return { data: null, error: new Error('Failed to verify username availability') };
-    }
-
-    if (existingUser) {
-      console.log('Username already taken:', username);
-      return { data: null, error: new Error('Username already taken') };
-    }
-
-    // Create auth user
+    // Create auth user first
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: {
-          username
-        },
-      },
     });
 
     if (signUpError) throw signUpError;
+
+    // Create profile immediately, using the user ID
+    if (data.user) {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert([{
+          id: data.user.id,
+          username,
+          updated_at: new Date().toISOString(),
+        }]);
+
+      if (profileError) {
+        console.error('Profile creation failed:', profileError);
+      }
+    }
 
     return { 
       data, 
