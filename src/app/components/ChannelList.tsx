@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { createSupabaseClient } from '@/utils/supabase';
 import { Channel } from '@/types/channel';
 import UserSelectionModal from './UserSelectionModal';
+import { useQuery } from '@tanstack/react-query';
 
 const supabase = createSupabaseClient();
 
@@ -16,34 +17,32 @@ interface ChannelListProps {
 
 export default function ChannelList({ currentChannel, onSelectChannel, onCreateChannel, onCreateDM }: ChannelListProps) {
   const [showUserSelect, setShowUserSelect] = useState(false);
-  const [channels, setChannels] = useState<Channel[]>([]);
   
-  const fetchChannels = async () => {
-    const { data } = await supabase
-      .from('channels')
-      .select(`
-        *,
-        channel_members!inner (
-          user_id,
-          profiles!inner (
-            id,
-            username
+  const { data: channels = [] } = useQuery<Channel[]>({
+    queryKey: ['channels'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('channels')
+        .select(`
+          *,
+          channel_members:channel_members!channel_id (
+            user_id,
+            profiles:profiles!user_id (
+              id,
+              username
+            )
           )
-        )
-      `)
-      .order('created_at', { ascending: true });
-    
-    setChannels((data || []) as unknown as Channel[]);
-  };
-
-  useEffect(() => {
-    fetchChannels();
-  }, []);
+        `)
+        .order('created_at', { ascending: true });
+      
+      if (error) throw error;
+      return (data as unknown as Channel[]) || [];
+    }
+  });
 
   const handleUserSelected = async (userId: string) => {
     setShowUserSelect(false);
     await onCreateDM(userId);
-    fetchChannels(); // Refresh channels after DM creation
   };
 
   return (
@@ -91,9 +90,7 @@ export default function ChannelList({ currentChannel, onSelectChannel, onCreateC
       {showUserSelect && (
         <UserSelectionModal
           onClose={() => setShowUserSelect(false)}
-          onUserSelected={(userId) => {
-            handleUserSelected(userId);
-          }}
+          onUserSelected={handleUserSelected}
         />
       )}
     </div>

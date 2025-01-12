@@ -100,9 +100,26 @@ const ChatInterface = () => {
           schema: 'public',
           table: 'channels'
         },
-        (payload) => {
-          console.log('📨 Channel change:', payload);
-          queryClient.invalidateQueries({ queryKey: ['channels'] });
+        async (payload) => {
+          console.log('📨 Channel change:', {
+            payload,
+            type: 'channel_changes',
+            timestamp: new Date().toISOString()
+          });
+
+          console.log('🔄 Starting query invalidation and refetch');
+          try {
+            await queryClient.invalidateQueries({ 
+              queryKey: ['channels'],
+              refetchType: 'active'
+            });
+            console.log('✅ Query invalidated');
+            
+            await refetchChannels();
+            console.log('✅ Channels refetched');
+          } catch (error) {
+            console.error('❌ Error during invalidation/refetch:', error);
+          }
         }
       )
       .subscribe((status) => {
@@ -143,14 +160,6 @@ const ChatInterface = () => {
             eventType: payload.eventType,
             timestamp: new Date().toISOString()
           });
-
-          if (payload.new?.thread_id) {  // Add optional chaining
-            console.log('🧵 Thread ID found:', payload.new.thread_id);
-            queryClient.invalidateQueries({ queryKey: ['thread', payload.new.thread_id] });
-          } else {
-            console.log('🧵 No thread_id in payload:', payload.new);
-          }
-          
           queryClient.invalidateQueries({ queryKey: ['messages', currentChannel.id] });
         }
       )
@@ -217,73 +226,6 @@ const ChatInterface = () => {
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
   }, [currentChannel?.id, queryClient]);
-
-  // Message subscription (second instance)
-  useEffect(() => {
-    if (!currentChannel) {
-      console.log('🔄 [SUB-3] Message subscription skipped - no channel');
-      return;
-    }
-
-    console.log(`🔄 [SUB-3] Setting up duplicate message subscription for channel: ${currentChannel.id}`);
-    
-    const channel = supabase
-      .channel(`messages:${currentChannel.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'messages',
-          filter: `channel_id=eq.${currentChannel.id}`
-        },
-        (payload) => {
-          console.log('📨 [SUB-3] Message change detected (duplicate sub):', {
-            payload,
-            channelId: currentChannel.id,
-            timestamp: new Date().toISOString()
-          });
-          queryClient.invalidateQueries({ 
-            queryKey: ['messages', currentChannel.id] 
-          });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      console.log(`🔌 [SUB-3] Cleaning up duplicate message subscription for channel: ${currentChannel.id}`);
-      supabase.removeChannel(channel);
-    };
-  }, [currentChannel?.id, queryClient]);
-
-  // Channel subscription (second instance)
-  useEffect(() => {
-    console.log('🔄 [SUB-4] Setting up duplicate channel subscription');
-    
-    const channel = supabase
-      .channel('channel_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'channels'
-        },
-        () => {
-          console.log('📨 [SUB-4] Channel change detected (duplicate sub)', {
-            timestamp: new Date().toISOString(),
-            type: 'channel_changes'
-          });
-          refetchChannels();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      console.log('🔌 [SUB-4] Cleaning up duplicate channel subscription');
-      supabase.removeChannel(channel);
-    };
-  }, [refetchChannels]);
 
   const handleChannelCreated = (channel: Channel) => {
     console.log('Channel created:', channel);
