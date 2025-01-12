@@ -45,9 +45,8 @@ const ChatInterface = () => {
   const [currentChannel, setCurrentChannel] = useState<Channel | null>(null);
   const [isSubscriptionReady, setIsSubscriptionReady] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
     message: Message;
+    position: { x: number; y: number };
   } | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [activeThread, setActiveThread] = useState<Message | null>(null);
@@ -333,10 +332,13 @@ const ChatInterface = () => {
   const handleContextMenu = (e: React.MouseEvent, message: Message) => {
     e.preventDefault();
     setContextMenu({
-      x: e.clientX,
-      y: e.clientY,
       message,
+      position: { x: e.pageX, y: e.pageY }
     });
+  };
+
+  const handleReply = (message: Message) => {
+    setActiveThread(message);
   };
 
   const handleCreateDM = async (userId: string) => {
@@ -411,111 +413,72 @@ const ChatInterface = () => {
     }
   };
 
+  const handleDeleteMessage = async (message: Message) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || message.user_id !== user.id) return;
+
+    const { error } = await supabase
+      .from('messages')
+      .delete()
+      .match({ id: message.id });
+
+    if (error) {
+      console.error('Error deleting message:', error);
+      return;
+    }
+
+    // If this was a thread parent, close the thread panel
+    if (activeThread?.id === message.id) {
+      setActiveThread(null);
+    }
+
+    // Refresh messages
+    queryClient.invalidateQueries({ queryKey: ['messages', currentChannel?.id] });
+  };
+
   return (
-    <div className="flex flex-col h-screen bg-black font-mono text-gray-200">
-      <div className="bg-green-900/30 text-gray-200 px-2 py-0.5 flex justify-between items-center border-b border-green-800/50">
-        <div>[ChatGenius]</div>
-        <button onClick={handleLogout} className="text-green-500 hover:text-green-400">
-          [X] Logout
-        </button>
-      </div>
-      
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left: Channels */}
-        <div className="w-48 border-r border-green-800/50">
-          <ChannelList 
-            channels={channels} 
-            selectedChannel={currentChannel}
-            onSelectChannel={setCurrentChannel}
-            onCreateChannel={handleCreateChannel}
-            onCreateDM={() => setShowUserSearch(true)}
-          />
-        </div>
-
-        {/* Middle: Chat Area */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <MessageList 
-            messages={messages} 
-            onContextMenu={handleContextMenu}
-            channelType={currentChannel?.type}
-          />
-          <MessageInput onSendMessage={handleSendMessage} />
-        </div>
-
-        {/* Right Side: Thread Panel */}
-        {activeThread && (
-          <div className="w-96 border-l border-green-800/50">
-            <ThreadPanel
-              parentMessage={activeThread}
-              onSendReply={handleSendReply}
-              onClose={() => setActiveThread(null)}
-            />
-          </div>
-        )}
-
-        {/* Far Right: Users List */}
-        <UserList />
+    <div className="flex h-screen bg-black text-white">
+      <div className="w-64 border-r border-green-800/50">
+        <ChannelList
+          currentChannel={currentChannel}
+          onSelectChannel={setCurrentChannel}
+          onCreateChannel={() => setShowCreateChannel(true)}
+          onCreateDM={() => setShowUserSearch(true)}
+        />
       </div>
 
-      {/* Add the context menu */}
+      <div className="flex-1 flex flex-col">
+        <MessageList
+          messages={messages || []}
+          onContextMenu={handleContextMenu}
+          channelType={currentChannel?.type}
+        />
+        <MessageInput
+          onSendMessage={handleSendMessage}
+          placeholder={`Message ${currentChannel?.name || ''}`}
+          currentChannel={currentChannel}
+        />
+      </div>
+
+      {activeThread && (
+        <div className="w-96 border-l border-green-800/50">
+          <ThreadPanel
+            parentMessage={activeThread}
+            onSendReply={handleSendReply}
+            onClose={() => setActiveThread(null)}
+          />
+        </div>
+      )}
+
+      <UserList />
+
       {contextMenu && (
         <MessageContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          onReplyInThread={() => handleReplyInThread(contextMenu.message)}
+          message={contextMenu.message}
+          position={contextMenu.position}
           onClose={() => setContextMenu(null)}
-        />
-      )}
-
-      {showCreateChannel && (
-        <CreateChannelModal
-          onClose={() => {
-            console.log('Closing modal');
-            setShowCreateChannel(false);
-          }}
-          onSubmit={async (name) => {
-            console.log('Creating channel:', name);
-            try {
-              const { data: { user } } = await supabase.auth.getUser();
-              if (!user) {
-                console.error('No user found');
-                return;
-              }
-
-              const { data: channel, error } = await supabase
-                .from('channels')
-                .insert([{
-                  name: name,
-                  created_by: user.id,
-                  created_at: new Date().toISOString()
-                }])
-                .select()
-                .single();
-
-              if (error) {
-                console.error('Channel creation error:', error);
-                throw error;
-              }
-
-              console.log('Channel created:', channel);
-              setShowCreateChannel(false);
-              queryClient.invalidateQueries({ queryKey: ['channels'] });
-              
-              if (channel) {
-                setCurrentChannel(channel);
-              }
-            } catch (error) {
-              console.error('Error in channel creation:', error);
-              throw error;
-            }
-          }}
-        />
-      )}
-
-      {showUserSearch && (
-        <UserSearchModal
-          onClose={() => setShowUserSearch(false)}
-          onSelectUser={handleCreateDM}
+          onReply={handleReply}
+          onDelete={handleDeleteMessage}
         />
       )}
     </div>

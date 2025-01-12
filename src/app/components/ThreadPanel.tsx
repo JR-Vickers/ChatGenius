@@ -5,6 +5,7 @@ import { formatTimestamp } from '@/utils/formatTime';
 import MessageInput from './MessageInput';
 import { useQuery } from '@tanstack/react-query';
 import { createSupabaseClient } from '@/utils/supabase';
+import FilePreview from './FilePreview';
 
 const supabase = createSupabaseClient();
 
@@ -50,6 +51,27 @@ export default function ThreadPanel({
     enabled: !!parentMessage?.id
   });
 
+  const renderMessageContent = (message: Message) => {
+    // Check for file message format: [File: filename](filepath)
+    const fileMatch = message.content.match(/\[File: (.*?)\]\((.*?)\)/);
+    if (fileMatch) {
+      const [_, fileName, filePath] = fileMatch;
+      return (
+        <FilePreview
+          file={{
+            name: fileName,
+            path: filePath,
+            type: fileName.split('.').pop()?.toLowerCase() || '',
+            size: 0
+          }}
+        />
+      );
+    }
+    
+    // Regular text message
+    return <span className="text-gray-300">{message.content}</span>;
+  };
+
   return (
     <div className="flex flex-col h-full">
       <div className="p-2 border-b border-green-800/50">
@@ -66,9 +88,11 @@ export default function ThreadPanel({
       <div className="flex-1 overflow-y-auto p-2">
         {threadMessages?.map((message) => (
           <div key={message.id} className="py-1">
-            <span className="text-gray-400">{message.profiles?.username || 'anonymous'}</span>
-            <span className="text-green-500"> {formatTimestamp(message.created_at)}</span>
-            <span className="text-gray-300"> {message.content}</span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-gray-400">{message.profiles?.username || 'anonymous'}</span>
+              <span className="text-green-500">{formatTimestamp(message.created_at)}</span>
+              {renderMessageContent(message)}
+            </div>
           </div>
         ))}
       </div>
@@ -77,6 +101,7 @@ export default function ThreadPanel({
         <MessageInput 
           onSendMessage={onSendReply}
           placeholder={placeholder || "Reply to thread..."}
+          currentChannel={{ id: parentMessage.channel_id }}
         />
       </div>
     </div>
