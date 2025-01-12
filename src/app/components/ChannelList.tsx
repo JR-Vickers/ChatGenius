@@ -79,7 +79,7 @@ export default function ChannelList({ currentChannel, onSelectChannel, onCreateC
             className={`w-full text-left p-2 rounded font-medium text-lg ${
               currentChannel?.id === channel.id 
                 ? 'bg-green-900/30 text-white' 
-                : 'text-gray-100 hover:bg-gray-800 hover:text-white'
+                : 'text-gray-300 hover:bg-gray-800 hover:text-white'
             }`}
           >
             @{channel.name}
