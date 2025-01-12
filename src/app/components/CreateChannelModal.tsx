@@ -65,7 +65,7 @@ export default function CreateChannelModal({ onClose, onChannelCreated }: Props)
         return;
       }
 
-      onChannelCreated(channel);
+      onChannelCreated(channel as unknown as Channel);
       onClose();
     } catch (err) {
       console.error('Channel creation failed:', err);
