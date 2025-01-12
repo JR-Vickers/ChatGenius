@@ -108,37 +108,5 @@ export function usePresence() {
     };
   }, [queryClient]);
 
-  const setCustomStatus = async (status: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    await supabase
-      .from('presence')
-      .upsert({
-        user_id: user.id,
-        custom_status: status,
-        last_seen: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'user_id'
-      });
-  };
-
-  const setTypingStatus = async (isTyping: boolean) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    await supabase
-      .from('presence')
-      .upsert({
-        user_id: user.id,
-        status: isTyping ? 'typing' : 'online',
-        last_seen: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'user_id'
-      });
-  };
-
   return { onlineUsers };
 }

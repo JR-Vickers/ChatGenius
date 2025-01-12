@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 
-let supabaseInstance: any = null;
+let supabaseInstance: ReturnType<typeof createClient> | null = null;
 
 export const createSupabaseClient = () => {
   if (supabaseInstance) return supabaseInstance;

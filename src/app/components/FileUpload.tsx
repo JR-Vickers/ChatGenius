@@ -37,12 +37,12 @@ export default function FileUpload({ channelId, onUploadComplete }: FileUploadPr
 
       for (const file of Array.from(files)) {
         if (file.size > MAX_FILE_SIZE) {
-          console.error(`File ${file.name} is too large (max ${MAX_FILE_SIZE / 1024 / 1024}MB)`);
+          setError(`File ${file.name} is too large (max ${MAX_FILE_SIZE / 1024 / 1024}MB)`);
           continue;
         }
         
         if (!ALLOWED_TYPES.includes(file.type)) {
-          console.error(`File type ${file.type} not allowed`);
+          setError(`File type ${file.type} not allowed`);
           continue;
         }
 
@@ -78,6 +78,7 @@ export default function FileUpload({ channelId, onUploadComplete }: FileUploadPr
       queryClient.invalidateQueries({ queryKey: ['messages', channelId] });
     } catch (error) {
       console.error('Upload error:', error);
+      setError(error instanceof Error ? error.message : 'Upload failed');
     } finally {
       setIsUploading(false);
     }
