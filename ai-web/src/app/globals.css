@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 17, 24, 39;
+  --background-rgb: 249, 250, 251;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 249, 250, 251;
+    --background-rgb: 17, 24, 39;
+  }
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-rgb));
+  min-height: 100vh;
+}
+
+.message {
+  @apply p-6 rounded-xl mb-4 shadow-sm;
+}
+
+.user-message {
+  @apply bg-blue-50 border border-blue-100;
+}
+
+.ai-message {
+  @apply bg-white border border-gray-200;
+}
+
+.error-message {
+  @apply bg-red-50 border border-red-100;
+}
+
+/* Document section styling */
+.document-section {
+  @apply mt-4 mb-6 text-gray-700;
+}
+
+.document-section h1,
+.document-section h2,
+.document-section h3 {
+  @apply font-semibold mb-3 text-gray-900;
+}
+
+.document-section h1 {
+  @apply text-xl;
+}
+
+.document-section h2 {
+  @apply text-lg;
+}
+
+.document-section h3 {
+  @apply text-base;
+}
+
+.document-section p {
+  @apply mb-4 leading-relaxed;
+}
+
+.document-section ul,
+.document-section ol {
+  @apply mb-4 pl-5;
+}
+
+.document-section li {
+  @apply mb-2;
+}
+
+/* Metadata styling */
+.metadata {
+  @apply mt-6 pt-6 border-t border-gray-100;
+}
+
+/* File upload styling */
+input[type="file"] {
+  @apply file:mr-4 file:py-2 file:px-4 
+         file:rounded-lg file:border-0 
+         file:text-sm file:font-medium
+         hover:file:cursor-pointer;
+} 

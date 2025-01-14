@@ -1,0 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #1a1d21;
+  --sidebar: #19171D;
+  --text-primary: #D1D2D3;
+  --text-secondary: #ABABAD;
+  --border: #424244;
+  --hover: #27242C;
+  --active: #1164A3;
+  --channel-hover: rgba(255, 255, 255, 0.06);
+}
+
+body {
+  font-family: 'Lato', sans-serif;
+  background: var(--background);
+  color: var(--text-primary);
+}
+
+/* Channel and DM styles */
+.channel-item {
+  @apply px-3 py-1 mx-2 rounded text-[15px] cursor-pointer;
+}
+
+.channel-item:hover {
+  background: var(--channel-hover);
+}
+
+.channel-item.active {
+  background: var(--active);
+}
+
+/* Message styles */
+.message-row {
+  @apply px-4 py-1 hover:bg-[#222529];
+}
+
+.message-row:hover .message-actions {
+  @apply opacity-100;
+}
+
+.message-actions {
+  @apply opacity-0 transition-opacity;
+}
+
+/* Input styles */
+.message-input {
+  @apply bg-[#222529] border border-[#424244] rounded-md focus:ring-2 focus:ring-[#1164A3] focus:border-transparent;
+}
