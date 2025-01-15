@@ -40,16 +40,16 @@ const AuthForm = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black font-mono">
-      <div className="bg-black border border-green-800/50 p-8 w-96">
+    <div className="min-h-screen flex items-center justify-center bg-[#1a1d21]">
+      <div className="bg-[#19171D] border border-[#424244] p-8 rounded-md w-96">
         {confirmationSent ? (
-          <div className="text-green-500 text-center">
-            [Check your email for confirmation link]
+          <div className="text-[#D1D2D3] text-center">
+            Check your email for confirmation link
           </div>
         ) : (
           <>
-            <h2 className="text-green-500 text-lg mb-6">
-              [{isLogin ? 'Login' : 'Sign Up'}]
+            <h2 className="text-[#D1D2D3] text-xl font-bold mb-6">
+              {isLogin ? 'Login' : 'Sign Up'}
             </h2>
             <form onSubmit={handleSubmit}>
               {!isLogin && (
@@ -59,7 +59,7 @@ const AuthForm = () => {
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="Username"
-                    className="w-full bg-black border border-green-800/50 p-2 text-gray-200"
+                    className="w-full bg-[#1a1d21] border border-[#424244] p-2 rounded text-[#D1D2D3] placeholder-[#ABABAD] focus:outline-none focus:border-[#1164A3] focus:ring-1 focus:ring-[#1164A3]"
                     required={!isLogin}
                   />
                 </div>
@@ -70,7 +70,7 @@ const AuthForm = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Email"
-                  className="w-full bg-black border border-green-800/50 p-2 text-gray-200"
+                  className="w-full bg-[#1a1d21] border border-[#424244] p-2 rounded text-[#D1D2D3] placeholder-[#ABABAD] focus:outline-none focus:border-[#1164A3] focus:ring-1 focus:ring-[#1164A3]"
                   required
                 />
               </div>
@@ -80,7 +80,7 @@ const AuthForm = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Password"
-                  className="w-full bg-black border border-green-800/50 p-2 text-gray-200"
+                  className="w-full bg-[#1a1d21] border border-[#424244] p-2 rounded text-[#D1D2D3] placeholder-[#ABABAD] focus:outline-none focus:border-[#1164A3] focus:ring-1 focus:ring-[#1164A3]"
                   required
                 />
               </div>
@@ -90,16 +90,16 @@ const AuthForm = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-green-900/30 text-gray-200 p-2 hover:bg-green-800/40 disabled:opacity-50"
+                className="w-full bg-[#1164A3] text-[#D1D2D3] p-2 rounded hover:bg-[#1164A3]/90 disabled:opacity-50 transition-colors"
               >
-                [{loading ? '...' : isLogin ? 'Login' : 'Sign Up'}]
+                {loading ? '...' : isLogin ? 'Login' : 'Sign Up'}
               </button>
             </form>
             <button
               onClick={() => setIsLogin(!isLogin)}
-              className="w-full mt-4 text-green-500 hover:text-green-400"
+              className="w-full mt-4 text-[#ABABAD] hover:text-[#D1D2D3] transition-colors"
             >
-              [{isLogin ? 'Need an account? Sign up' : 'Have an account? Login'}]
+              {isLogin ? 'Need an account? Sign up' : 'Have an account? Login'}
             </button>
           </>
         )}
