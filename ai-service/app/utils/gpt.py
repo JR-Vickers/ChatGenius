@@ -1,8 +1,20 @@
 from typing import List, Dict, Any
 import os
+import logging
 from openai import AsyncOpenAI
+from ..config import get_settings
 
-client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+logger = logging.getLogger(__name__)
+settings = get_settings()
+
+logger.info(f"Settings loaded, OpenAI key present: {bool(settings.openai_api_key)}")
+if settings.openai_api_key:
+    logger.info(f"OpenAI Key format: {settings.openai_api_key[:15]}...")
+
+# Initialize OpenAI client with project-scoped key
+client = AsyncOpenAI(
+    api_key=settings.openai_api_key
+)
 
 SYSTEM_PROMPT = """You are a helpful AI assistant that answers questions based on the provided context.
 Your answers should be:

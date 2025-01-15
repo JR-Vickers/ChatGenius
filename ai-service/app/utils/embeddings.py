@@ -1,5 +1,6 @@
 from langchain_openai import OpenAIEmbeddings
 from typing import List
+import base64
 from ..config import get_settings
 
 settings = get_settings()

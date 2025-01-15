@@ -22,6 +22,16 @@ from .utils.gpt import process_query
 load_dotenv()
 settings = get_settings()
 
+# Verify critical settings
+logger.info("=== Environment Check ===")
+logger.info(f"OpenAI API Key present: {bool(settings.openai_api_key)}")
+if settings.openai_api_key:
+    logger.info(f"OpenAI Key format: {settings.openai_api_key[:15]}...")
+logger.info(f"Pinecone API Key present: {bool(settings.pinecone_api_key)}")
+logger.info(f"Pinecone Environment: {settings.pinecone_environment}")
+logger.info(f"Pinecone Index: {settings.pinecone_index}")
+logger.info("========================")
+
 app = FastAPI(title="ChatGenius AI Service")
 
 # Initialize real-time processor
@@ -101,17 +111,25 @@ async def index_file(file: UploadFile = File(...)) -> Dict[str, List[str]]:
         content = await file.read()
         logger.info(f"Received file upload: {file.filename}, size: {len(content)} bytes")
         
-        # Extract text and metadata
-        result = await extract_text_from_file(content, file.filename)
-        logger.info(f"Successfully extracted text from {result['metadata']['filename']}")
+        try:
+            # Extract text and metadata
+            result = await extract_text_from_file(content, file.filename)
+            logger.info(f"Successfully extracted text from {result['metadata']['filename']}")
+        except Exception as e:
+            logger.error(f"Text extraction failed: {str(e)}")
+            raise
         
-        # Index the content
-        _, index = get_pinecone()
-        doc_ids = await add_texts(
-            texts=[result["content"]],
-            metadatas=[result["metadata"]]
-        )
-        logger.info(f"Successfully indexed document with IDs: {doc_ids}")
+        try:
+            # Index the content
+            _, index = get_pinecone()
+            doc_ids = await add_texts(
+                texts=[result["content"]],
+                metadatas=[result["metadata"]]
+            )
+            logger.info(f"Successfully indexed document with IDs: {doc_ids}")
+        except Exception as e:
+            logger.error(f"Indexing failed: {str(e)}")
+            raise
         
         return {"document_ids": doc_ids}
         
@@ -123,7 +141,7 @@ async def index_file(file: UploadFile = File(...)) -> Dict[str, List[str]]:
         raise HTTPException(status_code=415, detail=str(e))
     except Exception as e:
         logger.error(f"Error processing file: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error processing file")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/query", response_model=QueryResponse)
 async def query_avatar(request: QueryRequest):
