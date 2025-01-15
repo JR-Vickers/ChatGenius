@@ -7,6 +7,6 @@ python-multipart>=0.0.6
 langchain>=0.0.340,<0.1.0
 langchain-openai>=0.0.2,<0.1.0
 langsmith>=0.0.83
-pypdf>=3.17.0
+PyPDF2>=3.0.0
 pydantic>=2.0.0
 pydantic-settings>=2.0.0 
