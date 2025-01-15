@@ -2,6 +2,7 @@
 
 import { useState, KeyboardEvent, useRef } from 'react';
 import type { Channel } from '@/types/channel';
+import { config } from '@/utils/config';
 
 interface MessageInputProps {
   onSendMessage: (message: string, sender?: string) => Promise<void>;
@@ -86,20 +87,23 @@ export default function MessageInput({
     }
   };
 
+  const uploadFile = async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await fetch(`${config.aiServiceUrl}/index/file`, {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (!response.ok) throw new Error('Failed to upload file');
+    return response.json();
+  };
+
   const handleFileUpload = async (file: File) => {
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await fetch('http://localhost:8000/index/file', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) throw new Error('Upload failed');
-
-      const result = await response.json();
+      const result = await uploadFile(file);
       await onSendMessage(
         `📄 *Document Uploaded Successfully*\n` +
         `\`${file.name}\` (ID: \`${result.document_ids[0]}\`)\n\n` +
