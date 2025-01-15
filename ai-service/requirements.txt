@@ -9,4 +9,5 @@ langchain-openai>=0.0.2,<0.1.0
 langsmith>=0.0.83
 PyPDF2>=3.0.0
 pydantic>=2.0.0
-pydantic-settings>=2.0.0 
+pydantic-settings>=2.0.0
+python-magic>=0.4.27 
