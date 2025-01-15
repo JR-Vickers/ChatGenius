@@ -48,6 +48,9 @@ app.add_middleware(
         "http://localhost:3000",     # Next.js dev server
         "http://localhost:3001",     # Optional alternate dev port
         "https://chatgenius.app",    # Add your production domain when ready
+        "https://chat-genius-git-main-jarrettvickers-gauntletaics-projects.vercel.app",  # Vercel deployment
+        "https://chat-genius-jarrettvickers-gauntletaics-projects.vercel.app",  # Vercel deployment
+        "https://chat-genius.vercel.app"  # Vercel deployment
     ],
     allow_credentials=True,
     allow_methods=["*"],
