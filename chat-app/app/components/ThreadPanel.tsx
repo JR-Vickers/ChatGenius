@@ -5,7 +5,7 @@ import { formatTimestamp } from '../../utils/formatTime';
 import MessageInput from './MessageInput';
 import { useQuery } from '@tanstack/react-query';
 import { createSupabaseClient } from '../../utils/supabase';
-import FilePreview from './FilePreview';
+// import FilePreview from './FilePreview';
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -143,7 +143,13 @@ export default function ThreadPanel({ thread, onClose }: ThreadPanelProps) {
         <MessageInput 
           onSendMessage={handleSendReply}
           placeholder="Reply to thread..."
-          currentChannel={{ id: thread.channel_id }}
+          currentChannel={{ 
+            id: thread.channel_id,
+            name: '',
+            type: 'channel',
+            created_at: '',
+            created_by: ''
+          }}
         />
       </div>
     </div>
