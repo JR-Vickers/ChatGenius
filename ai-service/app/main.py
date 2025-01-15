@@ -12,7 +12,7 @@ import openai
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-from .utils.vector_store import add_texts, similarity_search_with_score, get_pinecone
+from .utils.vector_store import add_texts, similarity_search_with_score, get_pinecone, delete_all_vectors
 from .utils.file_processor import extract_text_from_file
 from .utils.realtime_processor import RealTimeProcessor
 from .config import get_settings
@@ -209,6 +209,16 @@ async def get_processing_status():
     if status["last_processed"]:
         status["last_processed"] = status["last_processed"].isoformat()
     return status
+
+@app.post("/index/reset")
+async def reset_index():
+    """Delete all vectors from the index"""
+    try:
+        await delete_all_vectors()
+        return {"status": "success", "message": "All vectors deleted"}
+    except Exception as e:
+        logger.error(f"Error resetting index: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True) 

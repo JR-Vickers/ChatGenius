@@ -154,3 +154,9 @@ async def similarity_search(
     """
     results = await similarity_search_with_score(query, k, filter)
     return [doc for doc, _ in results] 
+
+async def delete_all_vectors():
+    """Delete all vectors from the Pinecone index"""
+    _, index = get_pinecone()
+    index.delete(delete_all=True)
+    logger.info("Deleted all vectors from Pinecone index") 
