@@ -50,10 +50,10 @@ app.add_middleware(
         "https://chatgenius.app",    # Add your production domain when ready
         "https://chat-genius-git-main-jarrettvickers-gauntletaics-projects.vercel.app",  # Vercel deployment
         "https://chat-genius-jarrettvickers-gauntletaics-projects.vercel.app",  # Vercel deployment
-        "https://chat-genius.vercel.app"  # Vercel deployment
-        "https://chat-genius-fdw0o7nnt-jarrettvickers-gauntletaics-projects.vercel.app/"
-        "https://vercel.com/jarrettvickers-gauntletaics-projects/chat-genius/DWLFHygkrgESe8Snrb5YLHHcaTEi"
-        "https://chat-genius-git-main-jarrettvickers-gauntletaics-projects.vercel.app/"
+        "https://chat-genius.vercel.app",  # Vercel deployment
+        "https://chat-genius-fdw0o7nnt-jarrettvickers-gauntletaics-projects.vercel.app/",
+        "https://vercel.com/jarrettvickers-gauntletaics-projects/chat-genius/DWLFHygkrgESe8Snrb5YLHHcaTEi",
+        "https://chat-genius-git-main-jarrettvickers-gauntletaics-projects.vercel.app/",
         "https://chat-genius-nu.vercel.app/"
     ],
     allow_credentials=True,
