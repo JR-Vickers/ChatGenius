@@ -1,0 +1,70 @@
+# Features TODO
+## Not optional
+~~- Switch database to Vercel~~
+~~- Authentication~~
+~~- Real-time messaging~~
+~~- Thread support~~
+~~- User presence, & status~~
+~~- Channel/DM organization~~
+~~- File sharing & search~~
+- Emoji reactions
+
+## Optional / Polish
+- Threads should be visible in the channel list even when not selected
+- add a "typing..." indicator when someone is typing
+- add custom statuses (like slacks' status emoji + text)
+- away / idle based on inactivity
+- last seen timestamp
+- change ui timestamps to regular time, not military time
+- Add online/offline status indicators next to DM usernames
+- Sort DMs by most recent message
+- Add unread message indicators
+- Add typing indicators for DMs
+- Upload progress indicator for file uploads
+- Better error messages for file size/type restrictions
+- File size display in the preview
+- Multiple file upload handling
+
+# Higher Level Goals TODO
+- I want to reconfigure the app in such a way that DMs are basically just a channel.  I want DMs to have the exact same formatting and functionality as a channel.  I want to be able to switch between DMs and channels easily.
+- I am concerned about the spaghettification of the codebase.  I want to refactor the codebase to be more modular and easier to understand.  I want to make sure that the codebase is well-documented and easy to understand.  I want to make sure that the codebase is well-tested and easy to test.
+- I want to avoid going backward.  I need to push forward and avoid reworking the same parts of the codebase multiple times.
+- I don't think that I understand the backend database well enough, and it's causing slowdowns.  I need a quick and easy way to reset the database for rapid testing.  The problem is that each modification to the database changes the means by which it is reset.
+- I want to rework the UI to be more retro, sort of like windows 95.  However, this is a low priority, and should be done last.  Function over form.
+
+# General Principles for AI Interactions
+- The AI sometimes tries to be too smart.  It's not always necessary.  It's better to be simple and clear.
+- The AI likes to add new frameworks.  This often causes more problems than it solves.
+- The AI sometimes tries to clean up "unnecessary" code.  This means sometimes deleting things that are needed.  Tell it to stop doing this.
+- The AI often gets confused when interacting with things outside of the codebase, like Supabase.  If you hit a wall, ask it about the database settings.  Sometimes that's the issue.
+
+---
+ChatGenius: smarter workplace communication with AI
+Background and context
+Chat apps, such as Slack, are a foundational element of the modern workplace. If you work remotely, they are the workplace - and even if you work in-person, chat apps enable asynchronous collaboration and integration with other common tools.
+But chat apps aren’t perfect - written text lacks the nuance of the voice and facial expressions. Chatting can be less engaging, or even less accurate, with people missing key pieces of information.
+ChatGenius tackles this by applying generative AI, not to replace humans but to augment them. It gives the user a professional digital twin, an AI avatar that can represent them but still have a personal touch.
+
+Submission Guidelines
+At the end of each week you’ll be required to submit the following to the GauntletAI Platform:
+
+A link to the code of the project in Github
+The Brainlift you used in learning to build the application (and anything you used to feed to a model to make building the application better).
+A 5 minute walkthrough of you showing the world what you’ve built (and where relevant, how you’ve built it). The more impressive this is the better.
+The link to you sharing this project on X, and interacting with any feedback. Baseline App (Week 1) Our first week is spent building the application itself using AI-first principles.
+Some topics and techniques have not yet been covered in class, but you are not prevented from using them.
+
+For a baseline reference app, consider Slack - it is the dominant tool in this space, providing excellent UX and integration with a rich ecosystem.
+For the purposes of developing ChatGenius, here are the core features you should target:
+1. Authentication
+2. Real-time messaging
+3. Channel/DM organization
+4. File sharing & search
+5. User presence, & status
+6. Thread support
+7. Emoji reactions
+IDEs such as Cursor and any other AI tools are all fair game, as well as building on related open source projects (though doublecheck that the license is compatible with potential commercial use).
+
+---
+
+I am currently working on the above programming project, and I would like for you to help me.  I will be working in Cursor on a Macbook Pro.  I want to get an extremely basic prototype up and running quickly - let's just start with the ability to send messages in a slack-like channel with a simple frontend.  Please get me started

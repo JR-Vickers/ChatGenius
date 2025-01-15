@@ -13,8 +13,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased">
-        {children}
+      <body className="antialiased min-h-screen bg-[var(--background)] text-[var(--text-primary)]">
+        <main className="h-screen flex flex-col">
+          {children}
+        </main>
       </body>
     </html>
   );
