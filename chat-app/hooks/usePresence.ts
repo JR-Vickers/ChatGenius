@@ -75,7 +75,17 @@ export function usePresence() {
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'presence' },
         () => {
+          // Force immediate refetch when presence changes
           queryClient.invalidateQueries({ queryKey: ['presence'] });
+          queryClient.refetchQueries({ queryKey: ['presence'] });
+        }
+      )
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
+        () => {
+          // Force immediate refetch when profiles change
+          queryClient.invalidateQueries({ queryKey: ['presence'] });
+          queryClient.refetchQueries({ queryKey: ['presence'] });
         }
       )
       .subscribe();
