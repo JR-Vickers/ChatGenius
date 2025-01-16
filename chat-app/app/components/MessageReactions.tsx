@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { createSupabaseClient } from '@/utils/supabase';
 import data from '@emoji-mart/data';
 import Picker from '@emoji-mart/react';
@@ -15,9 +15,92 @@ interface MessageReactionsProps {
 
 export default function MessageReactions({ messageId, currentUserId }: MessageReactionsProps) {
   const [showPicker, setShowPicker] = useState(false);
+  const [pickerPosition, setPickerPosition] = useState({ top: 0, left: 0 });
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const supabase = createSupabaseClient();
   const reactions = useMessageReactions(messageId);
   const queryClient = useQueryClient();
+
+  // Calculate picker position when showing
+  const updatePickerPosition = () => {
+    if (!buttonRef.current || !pickerRef.current) return;
+    
+    const buttonRect = buttonRef.current.getBoundingClientRect();
+    const pickerRect = pickerRef.current.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+
+    // Start with positioning above the button
+    let top = buttonRect.top - pickerRect.height - 10;
+    let left = buttonRect.left - (pickerRect.width / 2) + (buttonRect.width / 2);
+
+    // If it would go off the top, position it below instead
+    if (top < 0) {
+      top = buttonRect.bottom + 10;
+    }
+
+    // If it would go off the bottom, adjust up
+    if (top + pickerRect.height > viewportHeight) {
+      top = viewportHeight - pickerRect.height - 10;
+    }
+
+    // Prevent horizontal overflow
+    if (left < 10) {
+      left = 10;
+    } else if (left + pickerRect.width > viewportWidth) {
+      left = viewportWidth - pickerRect.width - 10;
+    }
+
+    setPickerPosition({ top, left });
+  };
+
+  // Update position when picker is shown
+  useEffect(() => {
+    if (showPicker) {
+      // Initial position
+      updatePickerPosition();
+      
+      // Update on resize
+      window.addEventListener('resize', updatePickerPosition);
+      // Update on scroll
+      window.addEventListener('scroll', updatePickerPosition);
+
+      return () => {
+        window.removeEventListener('resize', updatePickerPosition);
+        window.removeEventListener('scroll', updatePickerPosition);
+      };
+    }
+  }, [showPicker]);
+
+  // Handle click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (pickerRef.current && 
+          buttonRef.current && 
+          !pickerRef.current.contains(event.target as Node) &&
+          !buttonRef.current.contains(event.target as Node)) {
+        setShowPicker(false);
+      }
+    };
+
+    // Handle escape key
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowPicker(false);
+      }
+    };
+
+    if (showPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEscape);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [showPicker]);
 
   // Group reactions by emoji
   const groupedReactions = reactions?.reduce((acc, reaction) => {
@@ -146,16 +229,27 @@ export default function MessageReactions({ messageId, currentUserId }: MessageRe
         </button>
       ))}
       <button
+        ref={buttonRef}
         onClick={() => setShowPicker(!showPicker)}
-        className="p-1 rounded hover:bg-[var(--hover)] opacity-0 group-hover:opacity-100 transition-opacity"
+        className="p-1 rounded hover:bg-[var(--hover)] opacity-100 transition-opacity"
       >
         <span className="text-[var(--text-secondary)]">+</span>
       </button>
       {showPicker && (
-        <div className="absolute bottom-full left-0 mb-2 z-50">
+        <div 
+          ref={pickerRef}
+          className="fixed z-[9999]"
+          style={{ 
+            top: `${pickerPosition.top}px`,
+            left: `${pickerPosition.left}px`,
+          }}
+        >
           <Picker
             data={data}
-            onEmojiSelect={handleAddReaction}
+            onEmojiSelect={(emoji: { native: string }) => {
+              handleAddReaction(emoji);
+              setShowPicker(false);
+            }}
             theme="dark"
           />
         </div>

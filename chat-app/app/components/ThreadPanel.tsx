@@ -8,6 +8,8 @@ import { createSupabaseClient } from '../../utils/supabase';
 // import FilePreview from './FilePreview';
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import MessageReactions from './MessageReactions';
+import { useUser } from '@/hooks/useUser';
 
 const supabase = createSupabaseClient();
 
@@ -17,6 +19,8 @@ interface ThreadPanelProps {
 }
 
 export default function ThreadPanel({ thread, onClose }: ThreadPanelProps) {
+  const { user } = useUser();
+
   const { data: threadMessages } = useQuery({
     queryKey: ['messages', thread.id, 'replies'],
     queryFn: async () => {
@@ -125,6 +129,10 @@ export default function ThreadPanel({ thread, onClose }: ThreadPanelProps) {
               <span className="text-xs text-gray-400">{formatTimestamp(thread.created_at)}</span>
             </div>
             <div className="text-gray-300 mt-1">{thread.content}</div>
+            <MessageReactions
+              messageId={thread.id}
+              currentUserId={user?.id || ''}
+            />
           </div>
         </div>
       </div>
@@ -150,6 +158,10 @@ export default function ThreadPanel({ thread, onClose }: ThreadPanelProps) {
                   <span className="text-xs text-gray-400">{formatTimestamp(message.created_at)}</span>
                 </div>
                 <div className="text-gray-300 mt-1">{message.content}</div>
+                <MessageReactions
+                  messageId={message.id}
+                  currentUserId={user?.id || ''}
+                />
               </div>
             </div>
           </div>
