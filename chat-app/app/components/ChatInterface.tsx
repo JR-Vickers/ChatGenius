@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createSupabaseClient } from '../../utils/supabase';
-import { Message } from '../../types/message';
+import { Message, MessageReaction } from '../../types/message';
 import CreateChannelModal from './CreateChannelModal';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Channel } from '../../types/channel';
@@ -34,10 +34,12 @@ const ChatInterface = () => {
     messages: boolean;
     channels: boolean;
     threads: boolean;
+    reactions: boolean;
   }>({
     messages: false,
     channels: false,
-    threads: false
+    threads: false,
+    reactions: false
   });
 
   const { data: channels = [], refetch: refetchChannels } = useQuery({
@@ -154,14 +156,14 @@ const ChatInterface = () => {
   // SINGLE message subscription - only when we have a channel
   useEffect(() => {
     if (!currentChannel?.id) {
-      console.log('🔄 Message subscription skipped - no channel');
+      console.log('🔄 Subscriptions skipped - no channel');
       return;
     }
 
-    console.log(`🔄 Setting up message subscription for channel: ${currentChannel.id}`);
+    console.log(`🔄 Setting up subscriptions for channel: ${currentChannel.id}`);
     
     const channel = supabase
-      .channel(`messages:${currentChannel.id}`)
+      .channel(`room:${currentChannel.id}`)
       .on(
         'postgres_changes',
         {
@@ -171,23 +173,38 @@ const ChatInterface = () => {
           filter: `channel_id=eq.${currentChannel.id}`
         },
         (payload) => {
-          console.log('📨 Message payload structure:', {
-            fullPayload: payload,
-            newData: payload.new,
-            eventType: payload.eventType,
-            timestamp: new Date().toISOString()
-          });
+          console.log('📨 Message change:', payload);
+          queryClient.invalidateQueries({ queryKey: ['messages', currentChannel.id] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'message_reactions'
+        },
+        (payload) => {
+          console.log('📨 Reaction change:', payload);
           queryClient.invalidateQueries({ queryKey: ['messages', currentChannel.id] });
         }
       )
       .subscribe((status) => {
-        console.log(`📡 Message subscription status: ${status}`);
-        setSubscriptionStatus(prev => ({ ...prev, messages: status === 'SUBSCRIBED' }));
+        console.log(`📡 Subscription status: ${status}`);
+        setSubscriptionStatus(prev => ({
+          ...prev,
+          messages: status === 'SUBSCRIBED',
+          reactions: status === 'SUBSCRIBED'
+        }));
       });
 
     return () => {
-      console.log('🔌 Cleaning up message subscription');
-      setSubscriptionStatus(prev => ({ ...prev, messages: false }));
+      console.log('🔌 Cleaning up subscriptions');
+      setSubscriptionStatus(prev => ({
+        ...prev,
+        messages: false,
+        reactions: false
+      }));
       supabase.removeChannel(channel);
     };
   }, [currentChannel?.id]); // Only when channel changes

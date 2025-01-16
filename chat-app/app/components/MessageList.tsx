@@ -3,6 +3,8 @@
 import { Message } from '../../types/message';
 import { formatTimestamp } from '../../utils/formatTime';
 import FilePreview from './FilePreview';
+import MessageReactions from './MessageReactions';
+import { useUser } from '@/hooks/useUser';
 
 interface MessageListProps {
   messages: Message[];
@@ -11,6 +13,8 @@ interface MessageListProps {
 }
 
 export default function MessageList({ messages, setContextMenu, setActiveThread }: MessageListProps) {
+  const { user } = useUser();
+
   const renderMessageContent = (message: Message) => {
     // Check for file message format: [File: filename](filepath)
     const fileMatch = message.content.match(/\[File: (.*?)\]\((.*?)\)/);
@@ -37,7 +41,7 @@ export default function MessageList({ messages, setContextMenu, setActiveThread 
       {messages?.map((message) => (
         <div 
           key={message.id} 
-          className="message-row group"
+          className="message-row group hover:bg-[var(--hover-light)] px-4 py-1"
           onContextMenu={(e) => {
             e.preventDefault();
             setContextMenu({
@@ -51,7 +55,7 @@ export default function MessageList({ messages, setContextMenu, setActiveThread 
             }
           }}
         >
-          <div className="flex items-start gap-2 py-1">
+          <div className="flex items-start gap-2">
             {message.profiles?.profile_picture_url ? (
               <img 
                 src={message.profiles.profile_picture_url} 
@@ -69,6 +73,10 @@ export default function MessageList({ messages, setContextMenu, setActiveThread 
                 <span className="text-xs text-[var(--text-secondary)]">{formatTimestamp(message.created_at)}</span>
               </div>
               <div className="text-[var(--text-primary)]">{renderMessageContent(message)}</div>
+              <MessageReactions
+                messageId={message.id}
+                currentUserId={user?.id || ''}
+              />
             </div>
           </div>
         </div>
