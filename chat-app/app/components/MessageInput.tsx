@@ -3,6 +3,9 @@
 import { useState, KeyboardEvent, useRef } from 'react';
 import type { Channel } from '@/types/channel';
 import { config } from '@/utils/config';
+import data from '@emoji-mart/data';
+import Picker from '@emoji-mart/react';
+import styles from './MessageInput.module.css';
 
 interface MessageInputProps {
   onSendMessage: (message: string, sender?: string) => Promise<void>;
@@ -16,10 +19,11 @@ export default function MessageInput({
   currentChannel
 }: MessageInputProps) {
   const [message, setMessage] = useState('');
-  // const [showFileUpload, setShowFileUpload] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [querying, setQuerying] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const emojiButtonRef = useRef<HTMLButtonElement>(null);
 
   const handleKeyPress = async (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey && message.trim()) {
@@ -117,11 +121,16 @@ export default function MessageInput({
     }
   };
 
+  const handleEmojiSelect = (emoji: any) => {
+    setMessage(prev => prev + emoji.native);
+    setShowEmojiPicker(false);
+  };
+
   if (!currentChannel) return null;
 
   return (
     <div className="px-4 pb-4">
-      <div className="flex items-center">
+      <div className="flex items-center relative">
         <input
           type="file"
           ref={fileInputRef}
@@ -143,6 +152,13 @@ export default function MessageInput({
             </svg>
           )}
         </button>
+        <button
+          ref={emojiButtonRef}
+          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+          className={`px-3 py-2 text-[#ABABAD] hover:text-white ${styles.emojiButton}`}
+        >
+          😊
+        </button>
         <input
           type="text"
           value={message}
@@ -156,6 +172,15 @@ export default function MessageInput({
           }
           disabled={uploading || querying}
         />
+        {showEmojiPicker && (
+          <div className={`absolute bottom-full left-0 mb-2 ${styles.emojiPickerWrapper}`}>
+            <Picker
+              data={data}
+              onEmojiSelect={handleEmojiSelect}
+              theme="dark"
+            />
+          </div>
+        )}
       </div>
     </div>
   );
