@@ -22,7 +22,10 @@ export function usePresence() {
           user_id,
           status,
           last_seen,
-          profiles (username)
+          profiles (
+            username,
+            profile_picture_url
+          )
         `)
         .gt('last_seen', new Date(Date.now() - 5 * 60 * 1000).toISOString());
       

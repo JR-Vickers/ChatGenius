@@ -50,3 +50,9 @@ next-env.d.ts
 
 # todo
 .todo
+
+# workflows
+workflows
+
+# plan
+plan.md

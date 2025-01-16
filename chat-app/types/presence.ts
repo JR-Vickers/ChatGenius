@@ -6,5 +6,6 @@ export interface Presence {
   updated_at: string;
   profiles?: {
     username: string;
+    profile_picture_url?: string;
   };
 } 
