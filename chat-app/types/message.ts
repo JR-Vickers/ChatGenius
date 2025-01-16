@@ -9,5 +9,6 @@ export interface Message {
   thread_id: string | null;
   profiles: {
     username: string;
+    profile_picture_url?: string;
   };
 }

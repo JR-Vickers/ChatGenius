@@ -30,7 +30,8 @@ export default function ThreadPanel({ thread, onClose }: ThreadPanelProps) {
           thread_id,
           user_id,
           profiles (
-            username
+            username,
+            profile_picture_url
           )
         `)
         .eq('thread_id', thread.id)
@@ -107,9 +108,17 @@ export default function ThreadPanel({ thread, onClose }: ThreadPanelProps) {
           </button>
         </div>
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium">
-            {thread.profiles?.username?.[0]?.toUpperCase()}
-          </div>
+          {thread.profiles?.profile_picture_url ? (
+            <img 
+              src={thread.profiles.profile_picture_url} 
+              alt={thread.profiles.username || 'User'} 
+              className="w-10 h-10 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium">
+              {thread.profiles?.username?.[0]?.toUpperCase()}
+            </div>
+          )}
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <span className="font-semibold text-gray-100">{thread.profiles?.username}</span>
@@ -124,9 +133,17 @@ export default function ThreadPanel({ thread, onClose }: ThreadPanelProps) {
         {threadMessages?.map((message) => (
           <div key={message.id} className="px-4 py-3 hover:bg-gray-700/50">
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium">
-                {message.profiles?.username?.[0]?.toUpperCase()}
-              </div>
+              {message.profiles?.profile_picture_url ? (
+                <img 
+                  src={message.profiles.profile_picture_url} 
+                  alt={message.profiles.username || 'User'} 
+                  className="w-10 h-10 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium">
+                  {message.profiles?.username?.[0]?.toUpperCase()}
+                </div>
+              )}
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-gray-100">{message.profiles?.username}</span>

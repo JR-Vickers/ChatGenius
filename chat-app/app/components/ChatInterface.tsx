@@ -84,7 +84,10 @@ const ChatInterface = () => {
           channel_id,
           user_id,
           thread_id,
-          profiles (username)
+          profiles (
+            username,
+            profile_picture_url
+          )
         `)
         .eq('channel_id', currentChannel.id)
         .is('thread_id', null)

@@ -52,9 +52,17 @@ export default function MessageList({ messages, setContextMenu, setActiveThread 
           }}
         >
           <div className="flex items-start gap-2 py-1">
-            <div className="w-9 h-9 rounded bg-[var(--active)] flex items-center justify-center text-white font-medium">
-              {message.profiles?.username?.[0]?.toUpperCase()}
-            </div>
+            {message.profiles?.profile_picture_url ? (
+              <img 
+                src={message.profiles.profile_picture_url} 
+                alt={message.profiles.username || 'User'} 
+                className="w-9 h-9 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-[var(--active)] flex items-center justify-center text-white font-medium">
+                {message.profiles?.username?.[0]?.toUpperCase()}
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-[var(--text-primary)]">{message.profiles?.username}</span>
