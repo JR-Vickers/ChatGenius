@@ -31,6 +31,39 @@ export const createAdminClient = () => {
   return adminClientInstance;
 };
 
+// Initialize the bot user in the database
+export const initializeBotUser = async () => {
+  const adminClient = createAdminClient();
+  
+  // Check if bot user already exists
+  const { data: existingBot } = await adminClient
+    .from('profiles')
+    .select()
+    .eq('id', BOT_CONFIG.id)
+    .single();
+
+  if (existingBot) {
+    console.log('Bot user already exists');
+    return;
+  }
+
+  // Create bot user profile
+  const { error } = await adminClient
+    .from('profiles')
+    .insert([{
+      id: BOT_CONFIG.id,
+      username: BOT_CONFIG.username,
+      profile_picture_url: BOT_CONFIG.avatar_url,
+      is_bot: true,
+      updated_at: new Date().toISOString()
+    }]);
+
+  if (error) {
+    console.error('Failed to create bot user:', error);
+    throw error;
+  }
+};
+
 // Helper to send messages as the bot
 export const sendBotMessage = async (content: string, channelId: string, type: 'text' | 'rag_response' = 'text') => {
   const adminClient = createAdminClient();

@@ -129,10 +129,7 @@ export default function ThreadPanel({ thread, onClose }: ThreadPanelProps) {
               <span className="text-xs text-gray-400">{formatTimestamp(thread.created_at)}</span>
             </div>
             <div className="text-gray-300 mt-1">{thread.content}</div>
-            <MessageReactions
-              messageId={thread.id}
-              currentUserId={user?.id || ''}
-            />
+            <MessageReactions message={thread} />
           </div>
         </div>
       </div>
@@ -158,10 +155,7 @@ export default function ThreadPanel({ thread, onClose }: ThreadPanelProps) {
                   <span className="text-xs text-gray-400">{formatTimestamp(message.created_at)}</span>
                 </div>
                 <div className="text-gray-300 mt-1">{message.content}</div>
-                <MessageReactions
-                  messageId={message.id}
-                  currentUserId={user?.id || ''}
-                />
+                <MessageReactions message={message} />
               </div>
             </div>
           </div>
