@@ -18,7 +18,7 @@ export interface Message {
   created_at: string;
   channel_id: string;
   user_id: string;
-  thread_id?: string | null;
+  thread_id?: string;
   type?: MessageType;
   profiles?: {
     username: string;

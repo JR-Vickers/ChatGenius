@@ -12,6 +12,7 @@ interface MessageContextMenuProps {
   onClose: () => void;
   onThreadClick: (message: Message) => void;
   onDelete?: (message: Message) => void;
+  onEdit?: (message: Message) => void;
 }
 
 export default function MessageContextMenu({ 
@@ -19,17 +20,18 @@ export default function MessageContextMenu({
   position, 
   onClose, 
   onThreadClick,
-  onDelete 
+  onDelete,
+  onEdit 
 }: MessageContextMenuProps) {
-  const [canDelete, setCanDelete] = useState(false);
+  const [canModify, setCanModify] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      setCanDelete(!!onDelete && message.user_id === user?.id);
+      setCanModify(message.user_id === user?.id);
     };
     checkAuth();
-  }, [message.user_id, onDelete]);
+  }, [message.user_id]);
 
   useEffect(() => {
     const handleClick = () => onClose();
@@ -51,18 +53,31 @@ export default function MessageContextMenu({
       >
         Reply in Thread
       </button>
-      {canDelete && (
-        <button 
-          className="block w-full text-left px-4 py-2 hover:bg-gray-700 text-red-500"
-          onClick={() => {
-            if (onDelete) {
-              onDelete(message);
-            }
-            onClose();
-          }}
-        >
-          Delete Message
-        </button>
+      {canModify && (
+        <>
+          <button 
+            className="block w-full text-left px-4 py-2 hover:bg-gray-700 text-blue-500"
+            onClick={() => {
+              if (onEdit) {
+                onEdit(message);
+              }
+              onClose();
+            }}
+          >
+            Edit Message
+          </button>
+          <button 
+            className="block w-full text-left px-4 py-2 hover:bg-gray-700 text-red-500"
+            onClick={() => {
+              if (onDelete) {
+                onDelete(message);
+              }
+              onClose();
+            }}
+          >
+            Delete Message
+          </button>
+        </>
       )}
     </div>
   );

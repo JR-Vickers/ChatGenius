@@ -498,6 +498,15 @@ const ChatInterface = () => {
     queryClient.invalidateQueries({ queryKey: ['messages', currentChannel?.id] });
   };
 
+  const handleEditMessage = (message: Message) => {
+    // Pass the message to MessageList's edit handler
+    const messageList = document.querySelector('.message-list');
+    if (messageList) {
+      const event = new CustomEvent('startEdit', { detail: message });
+      messageList.dispatchEvent(event);
+    }
+  };
+
   return (
     <div className="flex h-screen bg-gray-900 text-gray-100 overflow-hidden">
       {/* Left Sidebar */}
@@ -573,6 +582,7 @@ const ChatInterface = () => {
           onClose={() => setContextMenu(null)}
           onThreadClick={setActiveThread}
           onDelete={handleDeleteMessage}
+          onEdit={handleEditMessage}
         />
       )}
     </div>

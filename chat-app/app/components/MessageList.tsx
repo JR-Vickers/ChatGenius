@@ -1,11 +1,16 @@
 'use client';
 
+import { useState, useRef, useEffect } from 'react';
 import { Message, MessageType } from '@/types/message';
 import { formatTimestamp } from '@/utils/formatTime';
 import FilePreview from './FilePreview';
 import MessageReactions from './MessageReactions';
 import { useUser } from '@/hooks/useUser';
 import { Bot as BotIcon, Search as SearchIcon } from 'lucide-react';
+import { createSupabaseClient } from '@/utils/supabase';
+import { useQueryClient } from '@tanstack/react-query';
+
+const supabase = createSupabaseClient();
 
 interface MessageListProps {
   messages: Message[];
@@ -15,6 +20,60 @@ interface MessageListProps {
 
 export default function MessageList({ messages, setContextMenu, setActiveThread }: MessageListProps) {
   const { user } = useUser();
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [editContent, setEditContent] = useState('');
+  const queryClient = useQueryClient();
+  const listRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const element = listRef.current;
+    if (!element) return;
+
+    const handleStartEditEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<Message>;
+      setEditingMessage(customEvent.detail);
+      setEditContent(customEvent.detail.content);
+    };
+
+    element.addEventListener('startEdit', handleStartEditEvent);
+    return () => {
+      element.removeEventListener('startEdit', handleStartEditEvent);
+    };
+  }, []);
+
+  const handleSaveEdit = async () => {
+    if (!editingMessage) return;
+
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .update({ content: editContent })
+        .eq('id', editingMessage.id);
+
+      if (error) throw error;
+
+      // Refresh messages
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
+      setEditingMessage(null);
+      setEditContent('');
+    } catch (error) {
+      console.error('Failed to edit message:', error);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessage(null);
+    setEditContent('');
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSaveEdit();
+    } else if (e.key === 'Escape') {
+      handleCancelEdit();
+    }
+  };
 
   const getMessageTypeIcon = (type?: MessageType) => {
     switch (type) {
@@ -28,6 +87,36 @@ export default function MessageList({ messages, setContextMenu, setActiveThread 
   };
 
   const renderMessageContent = (message: Message) => {
+    if (editingMessage?.id === message.id) {
+      return (
+        <div className="flex flex-col gap-2">
+          <textarea
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            onKeyDown={handleKeyPress}
+            className="w-full bg-gray-800 text-gray-100 p-2 rounded border border-gray-700 focus:border-green-500 focus:ring-1 focus:ring-green-500"
+            rows={3}
+            autoFocus
+          />
+          <div className="flex gap-2 text-sm">
+            <button
+              onClick={handleSaveEdit}
+              className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded"
+            >
+              Save
+            </button>
+            <button
+              onClick={handleCancelEdit}
+              className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded"
+            >
+              Cancel
+            </button>
+            <span className="text-gray-400 ml-2">Press Enter to save, Esc to cancel</span>
+          </div>
+        </div>
+      );
+    }
+
     // Check for file message format: [File: filename](filepath)
     const fileMatch = message.content.match(/\[File: (.*?)\]\((.*?)\)/);
     if (fileMatch) {
@@ -38,7 +127,7 @@ export default function MessageList({ messages, setContextMenu, setActiveThread 
             name: fileName,
             path: filePath,
             type: fileName.split('.').pop()?.toLowerCase() || '',
-            size: 0 // We'll need to store this in the message or fetch it
+            size: 0
           }}
         />
       );
@@ -56,7 +145,10 @@ export default function MessageList({ messages, setContextMenu, setActiveThread 
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-gray-900">
+    <div 
+      ref={listRef}
+      className="flex-1 overflow-y-auto bg-gray-900 message-list"
+    >
       {messages?.map((message) => (
         <div 
           key={message.id} 
@@ -94,7 +186,7 @@ export default function MessageList({ messages, setContextMenu, setActiveThread 
                 )
               )}
             </div>
-            
+
             <div className="flex-1 overflow-hidden">
               <div className="flex items-center gap-x-2">
                 <span className="font-medium">
