@@ -12,6 +12,9 @@ import MessageInput from './MessageInput';
 import UserList from './UserList';
 import ChannelList from './ChannelList';
 import MessageList from './MessageList';
+import { sendBotMessage } from '@/utils/botClient';
+import { config } from '@/utils/config';
+import { useUser } from '@/hooks/useUser';
 
 const supabase = createSupabaseClient();
 
@@ -41,6 +44,7 @@ const ChatInterface = () => {
     threads: false,
     reactions: false
   });
+  const { user } = useUser();
 
   const { data: channels = [], refetch: refetchChannels } = useQuery({
     queryKey: ['channels'],
@@ -268,23 +272,80 @@ const ChatInterface = () => {
     queryClient.invalidateQueries({ queryKey: ['channels'] });
   };
 
-  const handleSendMessage = async (content: string) => {
-    if (!currentChannel?.id) return;
+  const handleSendMessage = async (content: string, type: 'text' | 'rag_query' = 'text') => {
+    console.log('handleSendMessage called with:', { content, type });
+    if (!currentChannel || !user) {
+      console.log('No channel or user:', { channel: !!currentChannel, user: !!user });
+      return;
+    }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      if (type === 'rag_query') {
+        console.log('Processing RAG query in ChatInterface');
+        // First send the user's query
+        const { error: queryError } = await supabase
+          .from('messages')
+          .insert([{
+            content,
+            channel_id: currentChannel.id,
+            user_id: user.id,
+            type: 'rag_query'
+          }]);
 
-    const { error } = await supabase
-      .from('messages')
-      .insert([{
-        content,
-        channel_id: currentChannel.id,
-        user_id: user.id,
-        created_at: new Date().toISOString()
-      }]);
+        if (queryError) {
+          console.error('Error inserting query message:', queryError);
+          throw queryError;
+        }
 
-    if (error) {
-      console.error('Error sending message:', error);
+        console.log('Sending thinking message');
+        // Send "thinking" message from bot
+        await sendBotMessage('Thinking...', currentChannel.id, 'text');
+
+        console.log('Making RAG query to AI service');
+        console.log('Request URL:', `${config.aiServiceUrl}/query`);
+        console.log('Request body:', { query: content, k: 3 });
+        // Make the actual RAG query
+        const response = await fetch(`${config.aiServiceUrl}/query`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: content, k: 3 })
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('RAG query failed:', {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorText
+          });
+          throw new Error('Query failed');
+        }
+
+        const result = await response.json();
+        console.log('RAG query result:', result);
+
+        // Send the main response only
+        await sendBotMessage(result.answer, currentChannel.id, 'rag_response');
+
+      } else {
+        console.log('Sending regular message');
+        // Regular message
+        const { error } = await supabase
+          .from('messages')
+          .insert([{
+            content,
+            channel_id: currentChannel.id,
+            user_id: user.id,
+            type: 'text'
+          }]);
+
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      if (type === 'rag_query') {
+        await sendBotMessage('❌ Failed to process query', currentChannel.id, 'text');
+      }
     }
   };
 
@@ -438,29 +499,31 @@ const ChatInterface = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-900 text-gray-100">
+    <div className="flex h-screen bg-gray-900 text-gray-100 overflow-hidden">
       {/* Left Sidebar */}
-      <div className="w-64 bg-gray-800 flex flex-col">
+      <div className="w-64 bg-gray-800 flex flex-col h-screen overflow-hidden">
         <div className="p-4 border-b border-gray-700">
           <h1 className="text-xl font-bold text-green-500">ChatGenius</h1>
         </div>
-        <ChannelList 
-          channels={channels} 
-          currentChannel={currentChannel}
-          setCurrentChannel={setCurrentChannel}
-          setShowCreateChannel={setShowCreateChannel}
-        />
+        <div className="flex-1 overflow-y-auto">
+          <ChannelList 
+            channels={channels} 
+            currentChannel={currentChannel}
+            setCurrentChannel={setCurrentChannel}
+            setShowCreateChannel={setShowCreateChannel}
+          />
+        </div>
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col bg-gray-900 min-w-0">
         {currentChannel ? (
           <>
-            <div className="p-4 border-b border-gray-700">
+            <div className="p-4 border-b border-gray-700 bg-gray-900">
               <h2 className="text-lg font-semibold">#{currentChannel.name}</h2>
             </div>
-            <div className="flex-1 flex">
-              <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex min-h-0">
+              <div className="flex-1 flex flex-col min-w-0">
                 <div className="flex-1 overflow-y-auto">
                   <MessageList 
                     messages={messages} 
@@ -489,8 +552,10 @@ const ChatInterface = () => {
       </div>
 
       {/* Right Sidebar */}
-      <div className="w-64 bg-gray-800 border-l border-gray-700">
-        <UserList />
+      <div className="w-64 bg-gray-800 flex flex-col h-screen overflow-hidden">
+        <div className="flex-1 overflow-y-auto">
+          <UserList />
+        </div>
       </div>
 
       {/* Modals and Overlays */}

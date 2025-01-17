@@ -1,0 +1,51 @@
+import { createClient } from '@supabase/supabase-js'
+
+// Bot user configuration
+export const BOT_CONFIG = {
+  id: '00000000-0000-0000-0000-000000000000',  // Fixed UUID for the bot
+  username: 'AI Assistant',
+  avatar_url: '/bot-avatar.png',
+  is_bot: true
+} as const;
+
+let adminClientInstance: ReturnType<typeof createClient> | null = null;
+
+export const createAdminClient = () => {
+  if (adminClientInstance) return adminClientInstance;
+  
+  if (!process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY is not set');
+  }
+
+  adminClientInstance = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    }
+  );
+  
+  return adminClientInstance;
+};
+
+// Helper to send messages as the bot
+export const sendBotMessage = async (content: string, channelId: string, type: 'text' | 'rag_response' = 'text') => {
+  const adminClient = createAdminClient();
+  
+  const { error } = await adminClient
+    .from('messages')
+    .insert([{
+      user_id: BOT_CONFIG.id,
+      content,
+      channel_id: channelId,
+      type
+    }]);
+
+  if (error) {
+    console.error('Failed to send bot message:', error);
+    throw error;
+  }
+}; 

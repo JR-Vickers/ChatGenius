@@ -1,29 +1,30 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { createSupabaseClient } from '@/utils/supabase';
 import data from '@emoji-mart/data';
 import Picker from '@emoji-mart/react';
 import { useMessageReactions } from '@/hooks/useMessageReactions';
 import { useQueryClient } from '@tanstack/react-query';
-import { MessageReaction } from '@/types/message';
+import { Message, MessageReaction } from '@/types/message';
+import { useUser } from '@/hooks/useUser';
 
 interface MessageReactionsProps {
-  messageId: string;
-  currentUserId: string;
+  message: Message;
 }
 
-export default function MessageReactions({ messageId, currentUserId }: MessageReactionsProps) {
+export default function MessageReactions({ message }: MessageReactionsProps) {
+  const { user } = useUser();
   const [showPicker, setShowPicker] = useState(false);
   const [pickerPosition, setPickerPosition] = useState({ top: 0, left: 0 });
   const pickerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const supabase = createSupabaseClient();
-  const reactions = useMessageReactions(messageId);
+  const reactions = useMessageReactions(message.id);
   const queryClient = useQueryClient();
 
   // Calculate picker position when showing
-  const updatePickerPosition = () => {
+  const updatePickerPosition = useCallback(() => {
     if (!buttonRef.current || !pickerRef.current) return;
     
     const buttonRect = buttonRef.current.getBoundingClientRect();
@@ -31,226 +32,160 @@ export default function MessageReactions({ messageId, currentUserId }: MessageRe
     const viewportHeight = window.innerHeight;
     const viewportWidth = window.innerWidth;
 
-    // Start with positioning above the button
     let top = buttonRect.top - pickerRect.height - 10;
     let left = buttonRect.left - (pickerRect.width / 2) + (buttonRect.width / 2);
 
-    // If it would go off the top, position it below instead
     if (top < 0) {
       top = buttonRect.bottom + 10;
     }
 
-    // If it would go off the bottom, adjust up
     if (top + pickerRect.height > viewportHeight) {
       top = viewportHeight - pickerRect.height - 10;
     }
 
-    // Prevent horizontal overflow
     if (left < 10) {
       left = 10;
-    } else if (left + pickerRect.width > viewportWidth) {
+    }
+
+    if (left + pickerRect.width > viewportWidth) {
       left = viewportWidth - pickerRect.width - 10;
     }
 
     setPickerPosition({ top, left });
-  };
+  }, []);
 
-  // Update position when picker is shown
   useEffect(() => {
     if (showPicker) {
-      // Initial position
       updatePickerPosition();
       
-      // Update on resize
+      // Add window resize listener
       window.addEventListener('resize', updatePickerPosition);
-      // Update on scroll
-      window.addEventListener('scroll', updatePickerPosition);
-
+      
+      // Cleanup
       return () => {
         window.removeEventListener('resize', updatePickerPosition);
-        window.removeEventListener('scroll', updatePickerPosition);
       };
     }
-  }, [showPicker]);
+  }, [showPicker, updatePickerPosition]);
 
-  // Handle click outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (pickerRef.current && 
-          buttonRef.current && 
-          !pickerRef.current.contains(event.target as Node) &&
-          !buttonRef.current.contains(event.target as Node)) {
-        setShowPicker(false);
-      }
-    };
-
-    // Handle escape key
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setShowPicker(false);
-      }
-    };
-
-    if (showPicker) {
-      document.addEventListener('mousedown', handleClickOutside);
-      document.addEventListener('keydown', handleEscape);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [showPicker]);
+  // Early return if no user
+  if (!user) {
+    return null;
+  }
 
   // Group reactions by emoji
-  const groupedReactions = reactions?.reduce((acc, reaction) => {
+  const groupedReactions = reactions.reduce((acc: Record<string, { count: number; users: string[]; hasReacted: boolean }>, reaction) => {
     if (!acc[reaction.emoji]) {
-      acc[reaction.emoji] = {
-        count: 0,
-        users: [],
-        hasReacted: false
-      };
+      acc[reaction.emoji] = { count: 0, users: [], hasReacted: false };
     }
     acc[reaction.emoji].count++;
     acc[reaction.emoji].users.push(reaction.profiles?.username || 'Unknown');
-    if (reaction.user_id === currentUserId) {
+    if (reaction.user_id === user.id) {
       acc[reaction.emoji].hasReacted = true;
     }
     return acc;
-  }, {} as Record<string, { count: number; users: string[]; hasReacted: boolean }>);
+  }, {});
 
   const handleAddReaction = async (emoji: any) => {
-    try {
-      console.log('🎯 Attempting to add/toggle reaction:', {
-        messageId,
-        userId: currentUserId,
-        emoji: emoji.native
-      });
+    setShowPicker(false);
 
-      // First check if the reaction already exists
+    try {
+      // Check if reaction already exists
       const { data: existingReaction } = await supabase
         .from('message_reactions')
         .select('id')
         .match({
-          message_id: messageId,
-          user_id: currentUserId,
+          message_id: message.id,
+          user_id: user.id,
           emoji: emoji.native
         })
         .single();
 
-      console.log('🔍 Existing reaction check:', existingReaction);
-
-      // If reaction exists, remove it
       if (existingReaction) {
-        console.log('🔄 Reaction exists, removing it');
-        return handleRemoveReaction(emoji.native);
+        // Remove reaction if it exists
+        await handleRemoveReaction(emoji.native);
+      } else {
+        // Add new reaction
+        const { error } = await supabase
+          .from('message_reactions')
+          .insert({
+            message_id: message.id,
+            user_id: user.id,
+            emoji: emoji.native,
+          });
+
+        if (error) throw error;
       }
 
-      // Otherwise, add new reaction
-      console.log('➕ Adding new reaction');
-      const { error } = await supabase
-        .from('message_reactions')
-        .insert({
-          message_id: messageId,
-          user_id: currentUserId,
-          emoji: emoji.native,
-        });
-
-      if (error) {
-        console.error('❌ Error adding reaction:', error);
-        throw error;
-      }
-      console.log('✅ Reaction added successfully');
-      setShowPicker(false);
+      // Invalidate reactions query
+      queryClient.invalidateQueries({
+        queryKey: ['reactions', message.id]
+      });
     } catch (error) {
-      console.error('❌ Error in handleAddReaction:', error);
+      console.error('Failed to add reaction:', error);
     }
   };
 
   const handleRemoveReaction = async (emoji: string) => {
-    console.log('🗑️ Removing reaction:', { messageId, userId: currentUserId, emoji });
-    
-    // Get current cache
-    const queryKey = ['reactions', messageId];
-    const currentData = queryClient.getQueryData<MessageReaction[]>(queryKey) || [];
-    
-    // Optimistically remove from cache
-    const newData = currentData.filter((reaction: MessageReaction) => 
-      !(reaction.message_id === messageId && 
-        reaction.user_id === currentUserId && 
-        reaction.emoji === emoji)
-    );
-    
-    console.log('💾 Optimistically updating cache:', {
-      before: currentData.length,
-      after: newData.length
-    });
-    
-    // Update cache immediately
-    queryClient.setQueryData(queryKey, newData);
-
     try {
       const { error } = await supabase
         .from('message_reactions')
         .delete()
-        .eq('message_id', messageId)
-        .eq('user_id', currentUserId)
+        .eq('message_id', message.id)
+        .eq('user_id', user.id)
         .eq('emoji', emoji);
 
-      if (error) {
-        // Rollback on error
-        console.error('❌ Error removing reaction:', error);
-        queryClient.setQueryData(queryKey, currentData);
-        throw error;
-      }
-      
-      console.log('✅ Reaction removed successfully');
+      if (error) throw error;
+
+      // Invalidate reactions query
+      queryClient.invalidateQueries({
+        queryKey: ['reactions', message.id]
+      });
     } catch (error) {
-      // Rollback on error
-      console.error('❌ Error removing reaction:', error);
-      queryClient.setQueryData(queryKey, currentData);
-      throw error;
+      console.error('Failed to remove reaction:', error);
     }
   };
 
   return (
-    <div className="flex items-center gap-2 mt-1 relative">
-      {Object.entries(groupedReactions || {}).map(([emoji, { count, users, hasReacted }]) => (
+    <div className="mt-1 flex items-center gap-2">
+      {Object.entries(groupedReactions).map(([emoji, data]) => (
         <button
           key={emoji}
-          onClick={() => hasReacted ? handleRemoveReaction(emoji) : handleAddReaction({ native: emoji })}
-          className={`px-2 py-1 rounded hover:bg-[var(--hover)] transition-colors ${
-            hasReacted ? 'bg-[var(--hover)]' : ''
-          }`}
-          title={`${users.join(', ')}`}
+          onClick={() => handleRemoveReaction(emoji)}
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-sm ${
+            data.hasReacted ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
+          } hover:bg-gray-200 transition-colors`}
+          title={data.users.join(', ')}
         >
-          <span className="mr-1">{emoji}</span>
-          <span className="text-xs text-[var(--text-secondary)]">{count}</span>
+          <span>{emoji}</span>
+          <span>{data.count}</span>
         </button>
       ))}
+      
       <button
         ref={buttonRef}
         onClick={() => setShowPicker(!showPicker)}
-        className="p-1 rounded hover:bg-[var(--hover)] opacity-100 transition-opacity"
+        className="text-gray-500 hover:text-gray-700"
       >
-        <span className="text-[var(--text-secondary)]">+</span>
+        +
       </button>
+
       {showPicker && (
-        <div 
+        <div
           ref={pickerRef}
-          className="fixed z-[9999]"
-          style={{ 
-            top: `${pickerPosition.top}px`,
-            left: `${pickerPosition.left}px`,
+          style={{
+            position: 'fixed',
+            top: pickerPosition.top,
+            left: pickerPosition.left,
+            zIndex: 1000
           }}
         >
           <Picker
             data={data}
-            onEmojiSelect={(emoji: { native: string }) => {
-              handleAddReaction(emoji);
-              setShowPicker(false);
-            }}
-            theme="dark"
+            onEmojiSelect={handleAddReaction}
+            theme="light"
+            previewPosition="none"
+            skinTonePosition="none"
           />
         </div>
       )}

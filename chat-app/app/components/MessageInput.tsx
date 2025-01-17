@@ -6,9 +6,10 @@ import { config } from '@/utils/config';
 import data from '@emoji-mart/data';
 import Picker from '@emoji-mart/react';
 import styles from './MessageInput.module.css';
+import { Search as SearchIcon } from 'lucide-react';
 
 interface MessageInputProps {
-  onSendMessage: (message: string, sender?: string) => Promise<void>;
+  onSendMessage: (message: string, type?: 'text' | 'rag_query') => Promise<void>;
   placeholder?: string;
   currentChannel: Channel;
 }
@@ -22,22 +23,35 @@ export default function MessageInput({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [querying, setQuerying] = useState(false);
+  const [isRagMode, setIsRagMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const emojiButtonRef = useRef<HTMLButtonElement>(null);
 
   const handleKeyPress = async (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey && message.trim()) {
+    // Toggle RAG mode with Ctrl+/
+    if (e.ctrlKey && e.key === '/') {
+      e.preventDefault();
+      setIsRagMode(!isRagMode);
+      console.log('RAG mode toggled:', !isRagMode);
+      return;
+    }
+
+    // Handle message send
+    if (e.key === 'Enter' && message.trim()) {
       e.preventDefault();
       try {
         const trimmedMessage = message.trim();
+        console.log('Sending message:', { trimmedMessage, isRagMode });
         setMessage('');
         
-        // Check for RAG query command
-        if (trimmedMessage.startsWith('/rag ')) {
-          const query = trimmedMessage.slice(5);
+        // If in RAG mode or using /rag command, treat as RAG query
+        if (isRagMode || trimmedMessage.startsWith('/rag ')) {
+          const query = trimmedMessage.startsWith('/rag ') ? trimmedMessage.slice(5) : trimmedMessage;
+          console.log('Processing RAG query:', query);
           await handleRagQuery(query);
         } else {
-          await onSendMessage(trimmedMessage);
+          console.log('Sending regular message');
+          await onSendMessage(trimmedMessage, 'text');
         }
       } catch (error) {
         console.error('Failed to send message:', error);
@@ -46,48 +60,16 @@ export default function MessageInput({
   };
 
   const handleRagQuery = async (query: string) => {
+    console.log('handleRagQuery called with:', query);
     setQuerying(true);
     try {
-      // First send the query message
-      await onSendMessage(`🔍 *RAG Query:* ${query}`, 'ChatGenius 🤖');
-      await onSendMessage(`_Thinking..._`, 'ChatGenius 🤖');
-
-      const response = await fetch('http://localhost:8000/query', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query,
-          k: 3
-        }),
-      });
-
-      if (!response.ok) throw new Error('Query failed');
-
-      const result = await response.json();
-      
-      // Format the response in a more readable way
-      const formattedResponse = [
-        '🤖 *AI Response:*',
-        result.answer,
-        '',
-        '📚 *Sources:*'
-      ];
-
-      // Add each source as a separate message for better readability
-      await onSendMessage(formattedResponse.join('\n'), 'ChatGenius 🤖');
-      
-      // Send sources as separate messages
-      for (const [i, r] of result.results.entries()) {
-        await onSendMessage(`>*Source ${i + 1}:*\n>${r.content.split('\n').join('\n>')}`, 'ChatGenius 🤖');
-      }
-
+      console.log('Sending RAG query to parent');
+      await onSendMessage(query, 'rag_query');
     } catch (error) {
-      console.error('Query error:', error);
-      await onSendMessage('❌ Failed to query documents', 'ChatGenius 🤖');
+      console.error('Failed to process RAG query:', error);
     } finally {
       setQuerying(false);
+      setIsRagMode(false);
     }
   };
 
@@ -109,13 +91,12 @@ export default function MessageInput({
     try {
       const result = await uploadFile(file);
       await onSendMessage(
-        `📄 *Document Uploaded Successfully*\n` +
-        `\`${file.name}\` (ID: \`${result.document_ids[0]}\`)\n\n` +
-        `Try asking questions about it using \`/rag your question\``
+        `📄 Document Uploaded: ${file.name}\n` +
+        `Press Ctrl+/ to ask questions about this document`
       );
     } catch (error) {
       console.error('Upload error:', error);
-      await onSendMessage(`❌ Failed to upload \`${file.name}\``);
+      await onSendMessage(`❌ Upload failed: ${file.name}`);
     } finally {
       setUploading(false);
     }
@@ -130,56 +111,75 @@ export default function MessageInput({
 
   return (
     <div className="px-4 pb-4">
-      <div className="flex items-center relative">
+      <div className={`flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--input-background)] p-2 ${
+        isRagMode ? 'ring-2 ring-blue-500' : ''
+      }`}>
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="p-2 hover:bg-[var(--hover)] rounded"
+          disabled={uploading || querying}
+        >
+          <svg className="w-5 h-5 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+        </button>
+
+        <div className="relative flex-1">
+          {isRagMode && (
+            <div className="absolute left-2 top-1/2 -translate-y-1/2">
+              <SearchIcon className="w-4 h-4 text-blue-500" />
+            </div>
+          )}
+          <input
+            type="text"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={handleKeyPress}
+            placeholder={isRagMode ? "Ask a question about your documents... (Enter to send)" : placeholder}
+            className={`w-full bg-transparent outline-none placeholder-[var(--text-secondary)] ${
+              isRagMode ? 'pl-8' : ''
+            }`}
+            disabled={uploading || querying}
+          />
+        </div>
+
+        <button
+          ref={emojiButtonRef}
+          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+          className="p-2 hover:bg-[var(--hover)] rounded"
+          disabled={uploading || querying}
+        >
+          😊
+        </button>
+
+        {showEmojiPicker && (
+          <div className="absolute bottom-full right-0 mb-2">
+            <Picker 
+              data={data} 
+              onEmojiSelect={handleEmojiSelect}
+              theme="dark"
+            />
+          </div>
+        )}
+
         <input
           type="file"
           ref={fileInputRef}
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0];
-            if (file) handleFileUpload(file);
+            if (file) {
+              handleFileUpload(file);
+            }
           }}
-          accept=".pdf,.txt"
         />
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading || querying}
-          className="px-3 py-2 text-[#ABABAD] hover:text-white disabled:opacity-50"
-        >
-          {uploading ? '⏳' : (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-            </svg>
-          )}
-        </button>
-        <button
-          ref={emojiButtonRef}
-          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-          className={`px-3 py-2 text-[#ABABAD] hover:text-white ${styles.emojiButton}`}
-        >
-          😊
-        </button>
-        <input
-          type="text"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={handleKeyPress}
-          className="message-input flex-1 py-2 px-3 text-[#D1D2D3]"
-          placeholder={
-            uploading ? 'Uploading...' : 
-            querying ? 'Thinking...' :
-            (placeholder + ' (Use /rag to query documents)')
-          }
-          disabled={uploading || querying}
-        />
-        {showEmojiPicker && (
-          <div className={`absolute bottom-full left-0 mb-2 ${styles.emojiPickerWrapper}`}>
-            <Picker
-              data={data}
-              onEmojiSelect={handleEmojiSelect}
-              theme="dark"
-            />
-          </div>
+      </div>
+
+      <div className="mt-1 text-xs text-[var(--text-secondary)]">
+        {isRagMode ? (
+          <span>RAG Mode: Ask questions about your documents (Ctrl+/ to toggle)</span>
+        ) : (
+          <span>Press Ctrl+/ to toggle RAG mode</span>
         )}
       </div>
     </div>

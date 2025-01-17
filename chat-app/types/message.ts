@@ -10,6 +10,8 @@ export interface MessageReaction {
   };
 }
 
+export type MessageType = 'text' | 'file' | 'rag_query' | 'rag_response';
+
 export interface Message {
   id: string;
   content: string;
@@ -17,9 +19,11 @@ export interface Message {
   channel_id: string;
   user_id: string;
   thread_id?: string | null;
+  type?: MessageType;
   profiles?: {
     username: string;
     profile_picture_url?: string;
+    is_bot?: boolean;
   };
   reactions?: MessageReaction[];
   message_reactions?: MessageReaction[]; // For Supabase response
